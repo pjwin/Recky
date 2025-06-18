@@ -24,6 +24,12 @@ struct HomeView: View {
                 Text(email)
                     .font(.headline)
             }
+            
+            Divider()
+
+            FriendsListView() // ⬅️ Inline view here
+
+            Spacer()
 
             Button("Sign Out") {
                 session.signOut()

@@ -75,7 +75,9 @@ struct LoginView: View {
                 let userDoc: [String: Any] = [
                     "email": user.email ?? "",
                     "username": user.email?.components(separatedBy: "@").first ?? "",
-                    "friends": []
+                    "friends": [],
+                    "friendRequests": [],
+                    "sentRequests": []
                 ]
 
                 db.collection("users").document(user.uid).setData(userDoc) { error in
