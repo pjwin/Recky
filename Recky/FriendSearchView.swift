@@ -1,11 +1,3 @@
-//
-//  FriendSearchView.swift
-//  Recky
-//
-//  Created by Paul Winters on 6/18/25.
-//
-
-
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
@@ -18,48 +10,61 @@ struct FriendSearchView: View {
     @State private var hasSentRequest = false
     @State private var hasIncomingRequest = false
 
-
     var body: some View {
-        VStack(spacing: 20) {
-            TextField("Search by username", text: $searchUsername)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled(true)
-                .padding()
-                .background(Color(.secondarySystemBackground))
-                .cornerRadius(8)
+        ScrollView {
+            VStack(spacing: 24) {
+                TextField("Search by username", text: $searchUsername)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .padding()
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(8)
 
-            Button("Search") {
-                searchUser()
-            }
-
-            if let user = foundUser {
-                Text("Found: \(user.username)")
-	
-                if isAlreadyFriend {
-                    Text("You're already friends 👯‍♀️")
-                        .foregroundColor(.green)
-                } else if hasSentRequest {
-                    Text("Friend request already sent ✅")
-                        .foregroundColor(.gray)
-                } else if hasIncomingRequest {
-                    Text("They've sent you a request! Check pending requests.")
-                        .foregroundColor(.orange)
-                } else {
-                    Button("Send Friend Request") {
-                        sendFriendRequest(to: user.uid)
-                    }
-                    .foregroundColor(.blue)
+                Button(action: searchUser) {
+                    Text("Search")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
                 }
 
-            }
+                if let user = foundUser {
+                    VStack(spacing: 8) {
+                        Text("Found: \(user.username)")
+                            .font(.headline)
 
-            if !message.isEmpty {
-                Text(message)
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                        if isAlreadyFriend {
+                            Text("You're already friends 👯‍♀️")
+                                .foregroundColor(.green)
+                        } else if hasSentRequest {
+                            Text("Friend request already sent ✅")
+                                .foregroundColor(.gray)
+                        } else if hasIncomingRequest {
+                            Text("They've sent you a request! Check pending requests.")
+                                .foregroundColor(.orange)
+                        } else {
+                            Button("Send Friend Request") {
+                                sendFriendRequest(to: user.uid)
+                            }
+                            .foregroundColor(.blue)
+                        }
+                    }
+                    .padding(.top)
+                }
+
+                if !message.isEmpty {
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                }
+
+                Spacer()
             }
+            .padding()
         }
-        .padding()
+        .navigationTitle("Add Friend")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     func searchUser() {
@@ -75,6 +80,7 @@ struct FriendSearchView: View {
                 }
                 guard let doc = snapshot?.documents.first else {
                     message = "User not found"
+                    foundUser = nil
                     return
                 }
 
@@ -83,7 +89,6 @@ struct FriendSearchView: View {
                 foundUser = (uid, username)
                 message = ""
 
-                // check friend status
                 db.collection("users").document(myUID).getDocument { myDoc, _ in
                     guard let myData = myDoc?.data() else { return }
 
@@ -97,7 +102,6 @@ struct FriendSearchView: View {
                 }
             }
     }
-
 
     func sendFriendRequest(to targetUID: String) {
         guard let myUID = Auth.auth().currentUser?.uid else { return }

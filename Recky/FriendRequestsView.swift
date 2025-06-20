@@ -11,17 +11,18 @@ import FirebaseFirestore
 
 struct FriendRequestsView: View {
     @State private var requests: [(uid: String, username: String)] = []
+    
+    var onFriendAccepted: () -> Void = {}
 
     var body: some View {
         VStack {
-            Text("Friend Requests").font(.headline)
-
             List(requests, id: \.uid) { request in
                 HStack {
                     Text(request.username)
                     Spacer()
                     Button("Accept") {
                         acceptRequest(from: request.uid)
+                        onFriendAccepted()
                     }
                 }
             }

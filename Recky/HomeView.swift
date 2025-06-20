@@ -17,6 +17,12 @@ struct HomeView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
+                Image("AppLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 120, height: 120)
+                    .padding()
+                
                 Text("You're logged in to Recky! 🎉")
                     .font(.title)
 
@@ -45,7 +51,6 @@ struct HomeView: View {
                 .foregroundColor(.red)
             }
             .padding()
-            .navigationTitle("Home")
             .onAppear {
                 startListeningForFriendRequests()
             }

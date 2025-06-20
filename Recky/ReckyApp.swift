@@ -7,6 +7,7 @@
 
 import FirebaseCore
 import SwiftUI
+import GoogleSignIn
 
 @main
 struct ReckyApp: App {

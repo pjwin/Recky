@@ -10,6 +10,8 @@
 		8684550A2E024E720035DC62 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 868455092E024E720035DC62 /* FirebaseAuth */; };
 		8684550C2E024E720035DC62 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 8684550B2E024E720035DC62 /* FirebaseCore */; };
 		8684550E2E024E720035DC62 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 8684550D2E024E720035DC62 /* FirebaseFirestore */; };
+		868455242E0464FA0035DC62 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 868455232E0464FA0035DC62 /* GoogleSignIn */; };
+		868455262E0464FA0035DC62 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 868455252E0464FA0035DC62 /* GoogleSignInSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -35,9 +37,22 @@
 		868454F32E02327F0035DC62 /* ReckyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ReckyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		8684552A2E04E0C30035DC62 /* Exceptions for "Recky" folder in "Recky" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 868454DB2E02327E0035DC62 /* Recky */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		868454DE2E02327E0035DC62 /* Recky */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				8684552A2E04E0C30035DC62 /* Exceptions for "Recky" folder in "Recky" target */,
+			);
 			path = Recky;
 			sourceTree = "<group>";
 		};
@@ -58,7 +73,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				868455262E0464FA0035DC62 /* GoogleSignInSwift in Frameworks */,
 				8684550C2E024E720035DC62 /* FirebaseCore in Frameworks */,
+				868455242E0464FA0035DC62 /* GoogleSignIn in Frameworks */,
 				8684550A2E024E720035DC62 /* FirebaseAuth in Frameworks */,
 				8684550E2E024E720035DC62 /* FirebaseFirestore in Frameworks */,
 			);
@@ -124,6 +141,8 @@
 				868455092E024E720035DC62 /* FirebaseAuth */,
 				8684550B2E024E720035DC62 /* FirebaseCore */,
 				8684550D2E024E720035DC62 /* FirebaseFirestore */,
+				868455232E0464FA0035DC62 /* GoogleSignIn */,
+				868455252E0464FA0035DC62 /* GoogleSignInSwift */,
 			);
 			productName = Recky;
 			productReference = 868454DC2E02327E0035DC62 /* Recky.app */;
@@ -209,6 +228,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				868455082E024E720035DC62 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				868455222E0464FA0035DC62 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 868454DD2E02327E0035DC62 /* Products */;
@@ -415,6 +435,7 @@
 				DEVELOPMENT_TEAM = PA7742627Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Recky/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -443,6 +464,7 @@
 				DEVELOPMENT_TEAM = PA7742627Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Recky/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -583,6 +605,14 @@
 				minimumVersion = 11.14.0;
 			};
 		};
+		868455222E0464FA0035DC62 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -600,6 +630,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 868455082E024E720035DC62 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestore;
+		};
+		868455232E0464FA0035DC62 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 868455222E0464FA0035DC62 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		868455252E0464FA0035DC62 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 868455222E0464FA0035DC62 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
