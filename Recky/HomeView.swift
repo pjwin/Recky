@@ -33,6 +33,14 @@ struct HomeView: View {
                 }
 
                 Divider()
+                
+                NavigationLink(destination: RecommendationsView()) {
+                    Label("Recommendations", systemImage: "star.bubble")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(8)
+                }
 
                 NavigationLink(destination: FriendsPageView()) {
                     Text("Friends")
