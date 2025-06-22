@@ -46,7 +46,6 @@ struct HomeView: View {
     private var headerBar: some View {
         ZStack {
             HStack {
-                // Logo on the left
                 Image("AppLogo")
                     .resizable()
                     .frame(width: 32, height: 32)
@@ -75,7 +74,6 @@ struct HomeView: View {
                 }
             }
 
-            // Centered welcome message
             VStack(spacing: 2) {
                 Text("Welcome back,")
                     .font(.subheadline)
@@ -126,7 +124,7 @@ struct HomeView: View {
 
     private func recommendationRow(for rec: Recommendation) -> some View {
         let hasVoted = rec.vote != nil
-        let typeEmoji = emojiForType(rec.type)
+        let typeEmoji = EmojiUtils.forType(rec.type)
 
         let voteIconName: String? = {
             switch rec.vote {
@@ -222,29 +220,30 @@ struct HomeView: View {
                 }
 
                 let docs = snapshot?.documents ?? []
-                var results: [Recommendation] = []
+                var results: [Int: Recommendation] = [:]
                 let group = DispatchGroup()
 
-                for doc in docs {
+                for (index, doc) in docs.enumerated() {
                     if var rec = try? doc.data(as: Recommendation.self) {
                         rec.id = doc.documentID
                         group.enter()
 
-                        // Fetch the username of the sender
                         db.collection("users").document(rec.fromUID).getDocument { userDoc, _ in
                             let username = userDoc?.get("username") as? String ?? "unknown"
                             rec.fromUsername = username
-                            results.append(rec)
+                            results[index] = rec
                             group.leave()
                         }
                     }
                 }
 
                 group.notify(queue: .main) {
-                    self.recommendations = results
+                    // Sort results by original index
+                    self.recommendations = (0..<docs.count).compactMap { results[$0] }
                 }
             }
     }
+
 
     private func voteEmoji(for vote: Bool?) -> some View {
         let iconName: String
@@ -283,15 +282,5 @@ struct HomeView: View {
                 pendingRequestCount = requests.count
             }
     }
-    
-    private func emojiForType(_ type: String) -> String {
-        switch type.lowercased() {
-        case "movie": return "🎬"
-        case "tv": return "📺"
-        case "book": return "📚"
-        case "album": return "🎧"
-        case "game": return "🎮"
-        default: return "❓"
-        }
-    }
+
 }
