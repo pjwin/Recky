@@ -5,9 +5,8 @@
 //  Created by Paul Winters on 6/20/25.
 //
 
-
-import Foundation
 import FirebaseFirestore
+import Foundation
 
 struct Recommendation: Identifiable, Codable {
     @DocumentID var id: String?
@@ -16,8 +15,7 @@ struct Recommendation: Identifiable, Codable {
     var title: String
     var type: String
     var notes: String?
+    var timestamp: Date
     var vote: Bool?
-
-    // Not in Firestore, populated manually
-    var fromUsername: String = "unknown"
+    var fromUsername: String?
 }

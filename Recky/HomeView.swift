@@ -14,13 +14,12 @@ struct HomeView: View {
     @State private var recommendations: [Recommendation] = []
     @State private var showSendView = false
     @State private var showProfile = false
+    @State private var pendingRequestCount: Int = 0
 
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
                 headerBar
-
-                welcomeSection
 
                 Divider()
 
@@ -39,38 +38,58 @@ struct HomeView: View {
             }
             .onAppear {
                 loadRecommendations()
+                startListeningForFriendRequests()
             }
         }
     }
 
     private var headerBar: some View {
-        HStack {
-            Image("AppLogo")
-                .resizable()
-                .frame(width: 32, height: 32)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-            Spacer()
-            Button(action: {
-                showProfile = true
-            }) {
-                Image(systemName: "person.circle")
+        ZStack {
+            HStack {
+                // Logo on the left
+                Image("AppLogo")
                     .resizable()
-                    .frame(width: 28, height: 28)
-            }
-        }
-    }
+                    .frame(width: 32, height: 32)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
 
-    private var welcomeSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Welcome back,")
-                .font(.headline)
-            if let email = session.user?.email {
-                Text(email)
+                Spacer()
+
+                ZStack(alignment: .topTrailing) {
+                    Button(action: {
+                        showProfile = true
+                    }) {
+                        Image(systemName: "person.circle")
+                            .resizable()
+                            .frame(width: 28, height: 28)
+                    }
+
+                    if pendingRequestCount > 0 {
+                        Text("\(pendingRequestCount)")
+                            .font(.caption2)
+                            .foregroundColor(.white)
+                            .padding(5)
+                            .background(Color.red)
+                            .clipShape(Circle())
+                            .offset(x: 10, y: -10)
+                    }
+                }
+            }
+
+            // Centered welcome message
+            VStack(spacing: 2) {
+                Text("Welcome back,")
                     .font(.subheadline)
                     .foregroundColor(.gray)
+
+                if let email = session.user?.email {
+                    Text(email)
+                        .font(.subheadline)
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.bottom, 8)
     }
 
     private var latestRecommendationsSection: some View {
@@ -106,13 +125,51 @@ struct HomeView: View {
     }
 
     private func recommendationRow(for rec: Recommendation) -> some View {
-        HStack {
-            Text(voteEmoji(for: rec.vote))
+        let hasVoted = rec.vote != nil
+        let typeEmoji = emojiForType(rec.type)
 
-            VStack(alignment: .leading) {
-                Text("“\(rec.title)”")
-                    .lineLimit(1)
-                Text("from @\(rec.fromUsername)")
+        let voteIconName: String? = {
+            switch rec.vote {
+            case true: return "hand.thumbsup.fill"
+            case false: return "hand.thumbsdown.fill"
+            default: return nil
+            }
+        }()
+
+        return HStack(alignment: .top, spacing: 12) {
+            // Vote icon if present, or placeholder
+            Group {
+                if let iconName = voteIconName {
+                    Image(systemName: iconName)
+                        .font(.title2)
+                        .foregroundColor(rec.vote == true ? .blue : .red)
+                } else {
+                    // Reserve the same space as the icon
+                    Color.clear
+                        .frame(width: 22, height: 22)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .top) {
+                    Text("\(typeEmoji) \(rec.title)")
+                        .font(.body)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    if !hasVoted {
+                        Text("NEW")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .padding(4)
+                            .background(Color.blue.opacity(0.15))
+                            .foregroundColor(.blue)
+                            .cornerRadius(4)
+                    }
+                }
+
+                Text("from @\(rec.fromUsername ?? "unknown")")
                     .font(.caption)
                     .foregroundColor(.gray)
             }
@@ -125,6 +182,12 @@ struct HomeView: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .cornerRadius(10)
+        .overlay(
+            !hasVoted ?
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.blue.opacity(0.4), lineWidth: 1)
+                : nil
+        )
     }
 
     private var recommendButton: some View {
@@ -183,11 +246,52 @@ struct HomeView: View {
             }
     }
 
-    private func voteEmoji(for vote: Bool?) -> String {
+    private func voteEmoji(for vote: Bool?) -> some View {
+        let iconName: String
+        let color: Color
+
         switch vote {
-        case true: return "👍"
-        case false: return "👎"
-        default: return "⭐️"
+        case true:
+            iconName = "hand.thumbsup.fill"
+            color = .blue
+        case false:
+            iconName = "hand.thumbsdown.fill"
+            color = .red
+        default:
+            iconName = "star"
+            color = .gray
+        }
+
+        return Image(systemName: iconName)
+            .foregroundColor(color)
+            .font(.title3)
+    }
+    
+    private func formattedTimeAgo(from date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+    
+    func startListeningForFriendRequests() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+
+        Firestore.firestore().collection("users").document(uid)
+            .addSnapshotListener { docSnapshot, error in
+                guard let doc = docSnapshot, let data = doc.data() else { return }
+                let requests = data["friendRequests"] as? [String] ?? []
+                pendingRequestCount = requests.count
+            }
+    }
+    
+    private func emojiForType(_ type: String) -> String {
+        switch type.lowercased() {
+        case "movie": return "🎬"
+        case "tv": return "📺"
+        case "book": return "📚"
+        case "album": return "🎧"
+        case "game": return "🎮"
+        default: return "❓"
         }
     }
 }

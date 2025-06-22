@@ -126,8 +126,6 @@ struct LoginView: View {
     }
 
     private func handleGoogleSignIn() {
-        let currentSession = session
-
         guard let clientID = FirebaseApp.app()?.options.clientID else { return }
         let config = GIDConfiguration(clientID: clientID)
 
