@@ -144,29 +144,29 @@ struct SendRecommendationView: View {
 
     func sendRecommendation() {
         guard let myUID = Auth.auth().currentUser?.uid,
-            let friend = selectedFriend
-        else { return }
+              let friend = selectedFriend else { return }
 
-        let rec = Recommendation(
-            fromUID: myUID,
-            toUID: friend.uid,
-            type: type,
-            title: title,
-            notes: notes,
-            timestamp: Date(),
-            vote: nil
-        )
+        let recData: [String: Any] = [
+            "fromUID": myUID,
+            "toUID": friend.uid,
+            "type": type,
+            "title": title,
+            "notes": notes,
+            "vote": NSNull(),
+            "timestamp": FieldValue.serverTimestamp()
+        ]
 
-        do {
-            try Firestore.firestore().collection("recommendations")
-                .addDocument(from: rec)
-            message = "Recommendation sent!"
-            // Optionally auto-dismiss:
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                dismiss()
+        Firestore.firestore().collection("recommendations")
+            .addDocument(data: recData) { error in
+                if let error = error {
+                    message = "Failed to send: \(error.localizedDescription)"
+                } else {
+                    message = "Recommendation sent!"
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        dismiss()
+                    }
+                }
             }
-        } catch {
-            message = "Failed to send."
-        }
     }
+
 }

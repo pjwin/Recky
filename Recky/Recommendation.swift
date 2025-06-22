@@ -13,9 +13,11 @@ struct Recommendation: Identifiable, Codable {
     @DocumentID var id: String?
     var fromUID: String
     var toUID: String
-    var type: String
     var title: String
+    var type: String
     var notes: String?
-    var timestamp: Date
-    var vote: Bool? // true = good, false = bad, nil = no vote
+    var vote: Bool?
+
+    // Not in Firestore, populated manually
+    var fromUsername: String = "unknown"
 }

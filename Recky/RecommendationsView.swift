@@ -1,10 +1,3 @@
-//
-//  RecommendationsView.swift
-//  Recky
-//
-//  Created by Paul Winters on 6/20/25.
-//
-
 import FirebaseAuth
 import FirebaseFirestore
 import SwiftUI
@@ -13,6 +6,7 @@ struct RecommendationsView: View {
     @State private var listener: ListenerRegistration?
     @State private var recommendations: [Recommendation] = []
     @State private var showSendView = false
+    @State private var localVotes: [String: Bool?] = [:]
 
     var body: some View {
         VStack {
@@ -38,18 +32,22 @@ struct RecommendationsView: View {
 
                         HStack(spacing: 12) {
                             Button(action: {
-                                vote(on: rec, value: true)
+                                handleVoteToggle(rec: rec, value: true)
                             }) {
-                                Text(rec.vote == true ? "👍🏼" : "👍🏻")
+                                Image(systemName: currentVote(for: rec) == true ? "hand.thumbsup.fill" : "hand.thumbsup")
                                     .font(.title2)
+                                    .foregroundColor(currentVote(for: rec) == true ? .blue : .gray)
                             }
+                            .buttonStyle(PlainButtonStyle())
 
                             Button(action: {
-                                vote(on: rec, value: false)
+                                handleVoteToggle(rec: rec, value: false)
                             }) {
-                                Text(rec.vote == false ? "👎🏼" : "👎🏻")
+                                Image(systemName: currentVote(for: rec) == false ? "hand.thumbsdown.fill" : "hand.thumbsdown")
                                     .font(.title2)
+                                    .foregroundColor(currentVote(for: rec) == false ? .red : .gray)
                             }
+                            .buttonStyle(PlainButtonStyle())
                         }
                         .padding(.top, 4)
                     }
@@ -86,39 +84,43 @@ struct RecommendationsView: View {
         listener = Firestore.firestore().collection("recommendations")
             .whereField("toUID", isEqualTo: myUID)
             .order(by: "timestamp", descending: true)
-            .addSnapshotListener { snapshot, error in
-                if let error = error {
-                    print("Failed to listen to recommendations: \(error)")
-                    return
-                }
-
+            .addSnapshotListener { snapshot, _ in
                 guard let docs = snapshot?.documents else { return }
 
-                self.recommendations = docs.compactMap { doc in
-                    try? doc.data(as: Recommendation.self)
+                var updated: [Recommendation] = []
+
+                for doc in docs {
+                    do {
+                        var rec = try doc.data(as: Recommendation.self)
+                        rec.id = doc.documentID
+                        updated.append(rec)
+                        localVotes[rec.id ?? ""] = rec.vote
+                    } catch {
+                        // Optional: log decode errors in development
+                    }
                 }
+
+                recommendations = updated
             }
     }
 
-    func vote(on rec: Recommendation, value: Bool) {
+    func handleVoteToggle(rec: Recommendation, value: Bool) {
         guard let recID = rec.id else { return }
         let ref = Firestore.firestore().collection("recommendations").document(recID)
 
-        let newVote: Bool? = (rec.vote == value) ? nil : value
-        print("Voting on \(rec.title) (\(recID)): \(String(describing: newVote))")
+        let currentVote = localVotes[recID] ?? rec.vote
+        let newVote: Bool? = (currentVote == value) ? nil : value
+        localVotes[recID] = newVote
 
-        if let vote = newVote {
-            ref.updateData(["vote": vote]) { error in
-                if let error = error {
-                    print("Vote failed: \(error)")
-                }
-            }
-        } else {
-            ref.updateData(["vote": FieldValue.delete()]) { error in
-                if let error = error {
-                    print("Vote removal failed: \(error)")
-                }
-            }
+        switch newVote {
+        case .some(let vote):
+            ref.updateData(["vote": vote])
+        case .none:
+            ref.updateData(["vote": FieldValue.delete()])
         }
+    }
+
+    func currentVote(for rec: Recommendation) -> Bool? {
+        localVotes[rec.id ?? ""] ?? rec.vote
     }
 }
