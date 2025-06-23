@@ -61,7 +61,6 @@ struct ProfileView: View {
                 .padding(.bottom)
             }
             .padding()
-            .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 listenForFriendRequests()
