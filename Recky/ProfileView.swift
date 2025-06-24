@@ -6,6 +6,7 @@ struct ProfileView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var session: SessionManager
     @State private var pendingRequestCount: Int = 0
+    @State private var myStats: DetailedStats? = nil
 
     var body: some View {
         NavigationView {
@@ -17,6 +18,37 @@ struct ProfileView: View {
                 if let email = session.user?.email {
                     Text("Signed in as: \(email)")
                         .font(.subheadline)
+                        .foregroundColor(.gray)
+                }
+
+                if let stats = myStats {
+                    VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Recommendations Sent:")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+
+                            statRow(icon: "👍", label: "Thumbs Up", count: stats.sentThumbsUp, percentage: stats.sentUpPercentage)
+                            statRow(icon: "👎", label: "Thumbs Down", count: stats.sentThumbsDown, percentage: stats.sentDownPercentage)
+                            statRow(icon: "❓", label: "No Vote", count: stats.sentNoVote, percentage: stats.sentNoVotePercentage)
+                            statRow(icon: "📦", label: "Total Sent", count: stats.sentTotal)
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Recommendations Received:")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+
+                            statRow(icon: "👍", label: "Thumbs Up", count: stats.receivedThumbsUp, percentage: stats.receivedUpPercentage)
+                            statRow(icon: "👎", label: "Thumbs Down", count: stats.receivedThumbsDown, percentage: stats.receivedDownPercentage)
+                            statRow(icon: "❓", label: "No Vote", count: stats.receivedNoVote, percentage: stats.receivedNoVotePercentage)
+                            statRow(icon: "📥", label: "Total Received", count: stats.receivedTotal)
+                        }
+                    }
+                    .padding(.horizontal)
+                } else {
+                    Text("Loading your stats...")
+                        .font(.caption2)
                         .foregroundColor(.gray)
                 }
 
@@ -64,8 +96,24 @@ struct ProfileView: View {
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 listenForFriendRequests()
+                fetchMyStats()
             }
         }
+    }
+    
+    @ViewBuilder
+    func statRow(icon: String, label: String, count: Int, percentage: String? = nil) -> some View {
+        HStack {
+            Text("\(icon) \(label):")
+                .frame(width: 140, alignment: .leading)
+            Text("\(count)")
+                .frame(width: 30, alignment: .trailing)
+            if let pct = percentage {
+                Text("(\(pct))")
+                    .foregroundColor(.gray)
+            }
+        }
+        .font(.caption2)
     }
 
     func listenForFriendRequests() {
@@ -80,4 +128,10 @@ struct ProfileView: View {
             }
     }
 
+    func fetchMyStats() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        RecommendationStatsService.fetchDetailedStats(for: uid) { stats in
+            myStats = stats
+        }
+    }
 }

@@ -14,9 +14,7 @@ struct FriendsPageView: View {
     var body: some View {
         VStack(alignment: .leading) {
             HeaderView()
-
             Divider()
-
             FriendListView()
         }
         .navigationTitle("Friends")
@@ -62,8 +60,6 @@ struct FriendsPageView: View {
             }
         }
     }
-
-    // MARK: - Subviews
 
     @ViewBuilder
     private func HeaderView() -> some View {
@@ -143,8 +139,6 @@ struct FriendsPageView: View {
         .padding(.vertical, 4)
     }
 
-    // MARK: - Logic
-
     private func loadRequests() {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
         let db = Firestore.firestore()
@@ -178,7 +172,9 @@ struct FriendsPageView: View {
             group.notify(queue: .main) {
                 self.friends = loadedFriends
                 for friend in loadedFriends {
-                    fetchStats(for: friend.id)
+                    RecommendationStatsService.fetchStats(for: friend.id) { stats in
+                        friendStatsByUID[friend.id] = stats
+                    }
                 }
             }
         }
@@ -196,45 +192,5 @@ struct FriendsPageView: View {
         otherRef.updateData(["friends": FieldValue.arrayRemove([myUID])])
 
         friends.removeAll { $0.id == uid }
-    }
-
-    private func fetchStats(for uid: String) {
-        let db = Firestore.firestore()
-        var sentUp = 0, sentDown = 0
-        var receivedUp = 0, receivedDown = 0
-        let group = DispatchGroup()
-
-        group.enter()
-        db.collection("recommendations")
-            .whereField("fromUID", isEqualTo: uid)
-            .getDocuments { snapshot, _ in
-                for doc in snapshot?.documents ?? [] {
-                    if let vote = doc["vote"] as? Bool {
-                        vote ? (sentUp += 1) : (sentDown += 1)
-                    }
-                }
-                group.leave()
-            }
-
-        group.enter()
-        db.collection("recommendations")
-            .whereField("toUID", isEqualTo: uid)
-            .getDocuments { snapshot, _ in
-                for doc in snapshot?.documents ?? [] {
-                    if let vote = doc["vote"] as? Bool {
-                        vote ? (receivedUp += 1) : (receivedDown += 1)
-                    }
-                }
-                group.leave()
-            }
-
-        group.notify(queue: .main) {
-            friendStatsByUID[uid] = FriendStats(
-                sentThumbsUp: sentUp,
-                sentThumbsDown: sentDown,
-                receivedThumbsUp: receivedUp,
-                receivedThumbsDown: receivedDown
-            )
-        }
     }
 }
