@@ -35,9 +35,13 @@ class AuthManager {
                 return
             }
 
+            let rawEmail = user.email ?? ""
+            let username = rawEmail.components(separatedBy: "@").first ?? ""
+
             let userDoc: [String: Any] = [
-                "email": user.email ?? "",
-                "username": user.email?.components(separatedBy: "@").first ?? "",
+                "email": rawEmail,
+                "emailLowercase": rawEmail.lowercased(),
+                "username": username,
                 "friends": [],
                 "friendRequests": [],
                 "sentRequests": []
@@ -77,14 +81,22 @@ class AuthManager {
                 }
 
                 guard let user = result?.user else { return }
+
                 let userRef = Firestore.firestore().collection("users").document(user.uid)
 
                 userRef.getDocument { document, _ in
-                    guard document?.exists == false else { return }
+                    guard document?.exists == false else {
+                        completion(nil) // User already exists
+                        return
+                    }
+
+                    let rawEmail = user.email ?? ""
+                    let username = rawEmail.components(separatedBy: "@").first ?? ""
 
                     let userDoc: [String: Any] = [
-                        "email": user.email ?? "",
-                        "username": user.email?.components(separatedBy: "@").first ?? "",
+                        "email": rawEmail,
+                        "emailLowercase": rawEmail.lowercased(),
+                        "username": username,
                         "friends": [],
                         "friendRequests": [],
                         "sentRequests": []
@@ -95,10 +107,11 @@ class AuthManager {
                             print("Error creating user doc: \(error)")
                         }
                     }
-                }
 
-                completion(nil)
+                    completion(nil)
+                }
             }
         }
     }
+
 }

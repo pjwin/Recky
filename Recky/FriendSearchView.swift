@@ -3,54 +3,26 @@ import FirebaseFirestore
 import FirebaseAuth
 
 struct FriendSearchView: View {
-    @State private var searchUsername = ""
-    @State private var foundUser: (uid: String, username: String)? = nil
+    @State private var searchEmail = ""
     @State private var message = ""
-    @State private var isAlreadyFriend = false
-    @State private var hasSentRequest = false
-    @State private var hasIncomingRequest = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                TextField("Search by username", text: $searchUsername)
+                TextField("Enter friend's email address", text: $searchEmail)
                     .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
                     .padding()
                     .background(Color(.secondarySystemBackground))
                     .cornerRadius(8)
 
-                Button(action: searchUser) {
-                    Text("Search")
+                Button(action: sendFriendRequestByEmail) {
+                    Text("Send Friend Request")
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(Color.blue)
                         .foregroundColor(.white)
                         .cornerRadius(8)
-                }
-
-                if let user = foundUser {
-                    VStack(spacing: 8) {
-                        Text("Found: \(user.username)")
-                            .font(.headline)
-
-                        if isAlreadyFriend {
-                            Text("You're already friends 👯‍♀️")
-                                .foregroundColor(.green)
-                        } else if hasSentRequest {
-                            Text("Friend request already sent ✅")
-                                .foregroundColor(.gray)
-                        } else if hasIncomingRequest {
-                            Text("They've sent you a request! Check pending requests.")
-                                .foregroundColor(.orange)
-                        } else {
-                            Button("Send Friend Request") {
-                                sendFriendRequest(to: user.uid)
-                            }
-                            .foregroundColor(.blue)
-                        }
-                    }
-                    .padding(.top)
                 }
 
                 if !message.isEmpty {
@@ -67,57 +39,42 @@ struct FriendSearchView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    func searchUser() {
+    func sendFriendRequestByEmail() {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
 
+        let searchEmailLower = searchEmail.lowercased()
         let db = Firestore.firestore()
+
         db.collection("users")
-            .whereField("username", isEqualTo: searchUsername)
+            .whereField("emailLowercase", isEqualTo: searchEmailLower)
             .getDocuments { snapshot, error in
-                if let error = error {
-                    message = "Error: \(error.localizedDescription)"
-                    return
-                }
                 guard let doc = snapshot?.documents.first else {
-                    message = "User not found"
-                    foundUser = nil
+                    // Don't reveal anything – always show the same message
+                    message = "If the email is registered, your request has been sent."
                     return
                 }
 
-                let uid = doc.documentID
-                let username = doc.get("username") as? String ?? "Unknown"
-                foundUser = (uid, username)
-                message = ""
+                let targetUID = doc.documentID
 
-                db.collection("users").document(myUID).getDocument { myDoc, _ in
-                    guard let myData = myDoc?.data() else { return }
-
-                    let myFriends = myData["friends"] as? [String] ?? []
-                    let mySent = myData["sentRequests"] as? [String] ?? []
-                    let myReceived = myData["friendRequests"] as? [String] ?? []
-
-                    isAlreadyFriend = myFriends.contains(uid)
-                    hasSentRequest = mySent.contains(uid)
-                    hasIncomingRequest = myReceived.contains(uid)
+                // Prevent sending request to self
+                if targetUID == myUID {
+                    message = "You can't send a friend request to yourself."
+                    return
                 }
+
+                let myRef = db.collection("users").document(myUID)
+                let targetRef = db.collection("users").document(targetUID)
+
+                // Send the friend request
+                myRef.updateData([
+                    "sentRequests": FieldValue.arrayUnion([targetUID])
+                ])
+
+                targetRef.updateData([
+                    "friendRequests": FieldValue.arrayUnion([myUID])
+                ])
+
+                message = "That user will receive your friend request if they are registered."
             }
-    }
-
-    func sendFriendRequest(to targetUID: String) {
-        guard let myUID = Auth.auth().currentUser?.uid else { return }
-
-        let db = Firestore.firestore()
-        let myRef = db.collection("users").document(myUID)
-        let targetRef = db.collection("users").document(targetUID)
-
-        myRef.updateData([
-            "sentRequests": FieldValue.arrayUnion([targetUID])
-        ])
-
-        targetRef.updateData([
-            "friendRequests": FieldValue.arrayUnion([myUID])
-        ])
-
-        message = "Request sent!"
     }
 }
