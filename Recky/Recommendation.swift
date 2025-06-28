@@ -18,4 +18,5 @@ struct Recommendation: Identifiable, Codable {
     var timestamp: Date
     var vote: Bool?
     var fromUsername: String?
+    var toUsername: String?
 }

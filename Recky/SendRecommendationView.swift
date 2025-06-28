@@ -10,9 +10,10 @@ struct SendRecommendationView: View {
 
     @State private var usernameQuery = ""
     @State private var searchResults: [(uid: String, username: String)] = []
-    @State private var selectedFriend: (uid: String, username: String)? = nil
+    @State private var selectedFriends: [(uid: String, username: String)] = []
 
     @State private var message = ""
+    @State private var isSending = false
 
     var body: some View {
         NavigationView {
@@ -37,17 +38,17 @@ struct SendRecommendationView: View {
 
                     usernameInputSection
 
-                    Button("Send Recommendation") {
+                    Button(action: {
                         sendRecommendation()
+                    }) {
+                        Text(isSending ? "Sending..." : "Send Recommendation")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background((title.isEmpty || selectedFriends.isEmpty || isSending) ? Color.gray : Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(8)
                     }
-                    .disabled(title.isEmpty || selectedFriend == nil)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(
-                        title.isEmpty || selectedFriend == nil ? Color.gray : Color.blue
-                    )
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
+                    .disabled(title.isEmpty || selectedFriends.isEmpty || isSending)
 
                     if !message.isEmpty {
                         Text(message)
@@ -79,11 +80,12 @@ struct SendRecommendationView: View {
                     searchUsernames()
                 }
 
-            if !searchResults.isEmpty && selectedFriend == nil {
+            if !searchResults.isEmpty {
                 ForEach(searchResults, id: \.uid) { user in
                     Button {
-                        selectedFriend = user
-                        usernameQuery = user.username
+                        guard !selectedFriends.contains(where: { $0.uid == user.uid }) else { return }
+                        selectedFriends.append(user)
+                        usernameQuery = ""
                         searchResults = []
                     } label: {
                         Text(user.username)
@@ -93,10 +95,26 @@ struct SendRecommendationView: View {
                 }
             }
 
-            if let friend = selectedFriend {
-                Text("Sending to: \(friend.username)")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+            if !selectedFriends.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Sending to:")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+
+                    ForEach(selectedFriends, id: \.uid) { friend in
+                        HStack {
+                            Text(friend.username)
+                            Spacer()
+                            Button(action: {
+                                selectedFriends.removeAll { $0.uid == friend.uid }
+                            }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
             }
         }
     }
@@ -110,30 +128,35 @@ struct SendRecommendationView: View {
     }
 
     private func sendRecommendation() {
-        guard let fromUID = Auth.auth().currentUser?.uid,
-              let friend = selectedFriend else { return }
+        guard let fromUID = Auth.auth().currentUser?.uid else { return }
+        isSending = true
 
-        let rec = Recommendation(
-            id: nil,
-            fromUID: fromUID,
-            toUID: friend.uid,
-            title: title,
-            type: type,
-            notes: notes.isEmpty ? nil : notes,
-            timestamp: Date(), // Will be replaced in Firestore anyway
-            vote: nil,
-            fromUsername: nil
-        )
+        let timestamp = Date()
+        let group = DispatchGroup()
 
-        RecommendationService.shared.send(rec) { result in
-            switch result {
-            case .success:
-                message = "Recommendation sent!"
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                    dismiss()
-                }
-            case .failure(let error):
-                message = "Failed to send: \(error.localizedDescription)"
+        for friend in selectedFriends {
+            let rec = Recommendation(
+                id: nil,
+                fromUID: fromUID,
+                toUID: friend.uid,
+                title: title,
+                type: type,
+                notes: notes.isEmpty ? nil : notes,
+                timestamp: timestamp,
+                vote: nil,
+                fromUsername: nil
+            )
+
+            group.enter()
+            RecommendationService.shared.send(rec) { _ in
+                group.leave()
+            }
+        }
+
+        group.notify(queue: .main) {
+            message = "Recommendations sent!"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                dismiss()
             }
         }
     }

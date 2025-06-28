@@ -1,31 +1,42 @@
-//
-//  HomeView.swift
-//  Recky
-//
-//  Created by Paul Winters on 6/17/25.
-//
-
 import FirebaseAuth
 import FirebaseFirestore
 import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject var session: SessionManager
+
     @State private var recommendations: [Recommendation] = []
+    @State private var sentRecommendations: [Recommendation] = []
+
     @State private var showSendView = false
     @State private var showProfile = false
+    @State private var showAllRecommendations = false
+    @State private var showAllSent = false
     @State private var pendingRequestCount: Int = 0
+    @AppStorage("hasPulledToRefresh") private var hasPulledToRefresh = false
+
+    @State private var isLatestExpanded = true
+    @State private var isSentExpanded = true
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 20) {
                 headerBar
 
                 Divider()
 
-                latestRecommendationsSection
-
-                Spacer()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        latestRecommendationsSection
+                        sentRecommendationsSection
+                    }
+                    .padding(.vertical)
+                }
+                .refreshable {
+                    loadRecommendations()
+                    loadSentRecommendations()
+                    hasPulledToRefresh = true
+                }
 
                 recommendButton
             }
@@ -36,12 +47,21 @@ struct HomeView: View {
             .sheet(isPresented: $showProfile) {
                 ProfileView()
             }
+            .navigationDestination(isPresented: $showAllRecommendations) {
+                AllRecommendationsView()
+            }
+            .navigationDestination(isPresented: $showAllSent) {
+                SentRecommendationsView()
+            }
             .onAppear {
                 loadRecommendations()
+                loadSentRecommendations()
                 startListeningForFriendRequests()
             }
         }
     }
+
+    // MARK: Header Bar
 
     private var headerBar: some View {
         ZStack {
@@ -90,42 +110,110 @@ struct HomeView: View {
         .padding(.bottom, 8)
     }
 
+    // MARK: Latest Recommendations
+
     private var latestRecommendationsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader
+            HStack {
+                Button(action: {
+                    isLatestExpanded.toggle()
+                }) {
+                    HStack {
+                        Image(systemName: "chevron.right")
+                            .rotationEffect(.degrees(isLatestExpanded ? 90 : 0))
+                            .animation(.easeInOut(duration: 0.2), value: isLatestExpanded)
+                        Text("Latest Recommendations")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                    }
+                }
 
-            if recommendations.isEmpty {
-                emptyStateText
-            } else {
-                recommendationList
+                Spacer()
+
+                Button("See All >") {
+                    showAllRecommendations = true
+                }
+                .font(.subheadline)
+                .foregroundColor(.blue)
+            }
+
+            if isLatestExpanded {
+                if recommendations.isEmpty {
+                    Text("No recent recommendations.")
+                        .foregroundColor(.gray)
+                        .padding(.top, 4)
+                } else {
+                    VStack(spacing: 12) {
+                        if !hasPulledToRefresh {
+                            Text("Pull down to refresh")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        ForEach(Array(recommendations.prefix(5))) { rec in
+                            NavigationLink(destination: RecommendationDetailView(recommendation: rec)) {
+                                recommendationRow(for: rec)
+                            }
+                        }
+                    }
+                    .padding(.top)
+                }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var sectionHeader: some View {
-        Text("📢  Latest Recommendations")
-            .font(.headline)
-    }
+    // MARK: Sent Recommendations
 
-    private var emptyStateText: some View {
-        Text("No recent recommendations.")
-            .foregroundColor(.gray)
-            .padding(.top, 8)
-    }
+    private var sentRecommendationsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Button(action: {
+                    isSentExpanded.toggle()
+                }) {
+                    HStack {
+                        Image(systemName: "chevron.right")
+                            .rotationEffect(.degrees(isSentExpanded ? 90 : 0))
+                            .animation(.easeInOut(duration: 0.2), value: isSentExpanded)
+                        Text("Sent Recommendations")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                    }
+                }
 
-    private var recommendationList: some View {
-        ForEach(Array(recommendations.prefix(5))) { rec in
-            NavigationLink(destination: RecommendationDetailView(recommendation: rec)) {
-                recommendationRow(for: rec)
+                Spacer()
+
+                Button("See All >") {
+                    showAllSent = true
+                }
+                .font(.subheadline)
+                .foregroundColor(.blue)
+            }
+
+            if isSentExpanded {
+                if sentRecommendations.isEmpty {
+                    Text("You haven't sent any yet.")
+                        .foregroundColor(.gray)
+                        .padding(.top, 4)
+                } else {
+                    VStack(spacing: 12) {
+                        ForEach(Array(sentRecommendations.prefix(5))) { rec in
+                            NavigationLink(destination: ReadOnlyRecommendationView(recommendation: rec)) {
+                                sentRecommendationRow(for: rec)
+                            }
+                        }
+                    }
+                    .padding(.top)
+                }
             }
         }
     }
+
+    // MARK: Recommendation Row
 
     private func recommendationRow(for rec: Recommendation) -> some View {
         let hasVoted = rec.vote != nil
         let typeEmoji = EmojiUtils.forType(rec.type)
-
         let voteIconName: String? = {
             switch rec.vote {
             case true: return "hand.thumbsup.fill"
@@ -135,14 +223,12 @@ struct HomeView: View {
         }()
 
         return HStack(alignment: .top, spacing: 12) {
-            // Vote icon if present, or placeholder
             Group {
                 if let iconName = voteIconName {
                     Image(systemName: iconName)
                         .font(.title2)
                         .foregroundColor(rec.vote == true ? .blue : .red)
                 } else {
-                    // Reserve the same space as the icon
                     Color.clear
                         .frame(width: 22, height: 22)
                 }
@@ -188,6 +274,77 @@ struct HomeView: View {
         )
     }
 
+    private func sentRecommendationRow(for rec: Recommendation) -> some View {
+        let typeEmoji = EmojiUtils.forType(rec.type)
+        let hasVote = rec.vote != nil
+
+        let voteIconName: String? = {
+            switch rec.vote {
+            case true: return "hand.thumbsup.fill"
+            case false: return "hand.thumbsdown.fill"
+            default: return nil
+            }
+        }()
+
+        return HStack(alignment: .top, spacing: 12) {
+            Group {
+                if let iconName = voteIconName {
+                    Image(systemName: iconName)
+                        .font(.title2)
+                        .foregroundColor(rec.vote == true ? .blue : .red)
+                } else {
+                    Color.clear
+                        .frame(width: 22, height: 22)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(typeEmoji) \(rec.title)")
+                    .font(.body)
+                    .lineLimit(1)
+
+                Text("to @\(rec.toUsername ?? "unknown")")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+
+                voteStatus(for: rec.vote)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .foregroundColor(.gray)
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(10)
+        .overlay(
+            !hasVote
+                ? RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.blue.opacity(0.4), lineWidth: 1)
+                : nil
+        )
+    }
+
+    private func voteStatus(for vote: Bool?) -> some View {
+        Group {
+            switch vote {
+            case true:
+                Label("Liked", systemImage: "hand.thumbsup.fill")
+                    .foregroundColor(.blue)
+            case false:
+                Label("Disliked", systemImage: "hand.thumbsdown.fill")
+                    .foregroundColor(.red)
+            default:
+                Text("No vote yet")
+                    .foregroundColor(.gray)
+            }
+        }
+        .font(.caption)
+    }
+
+    // MARK: Recommend Button
+
     private var recommendButton: some View {
         Button(action: {
             showSendView = true
@@ -204,18 +361,52 @@ struct HomeView: View {
         }
     }
 
+    // MARK: Data Load
+
     private func loadRecommendations() {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
 
         let db = Firestore.firestore()
-
         db.collection("recommendations")
             .whereField("toUID", isEqualTo: myUID)
             .order(by: "timestamp", descending: true)
             .limit(to: 10)
             .getDocuments { snapshot, error in
+                guard error == nil else { return }
+                let docs = snapshot?.documents ?? []
+                var results: [Int: Recommendation] = [:]
+                let group = DispatchGroup()
+
+                for (index, doc) in docs.enumerated() {
+                    if var rec = try? doc.data(as: Recommendation.self) {
+                        rec.id = doc.documentID
+                        group.enter()
+                        db.collection("users").document(rec.fromUID).getDocument { userDoc, _ in
+                            rec.fromUsername = userDoc?.get("username") as? String ?? "unknown"
+                            results[index] = rec
+                            group.leave()
+                        }
+                    }
+                }
+
+                group.notify(queue: .main) {
+                    self.recommendations = (0..<docs.count).compactMap { results[$0] }
+                }
+            }
+    }
+
+    private func loadSentRecommendations() {
+        guard let myUID = Auth.auth().currentUser?.uid else { return }
+
+        let db = Firestore.firestore()
+
+        db.collection("recommendations")
+            .whereField("fromUID", isEqualTo: myUID)
+            .order(by: "timestamp", descending: true)
+            .limit(to: 10)
+            .getDocuments { snapshot, error in
                 if let error = error {
-                    print("Failed to fetch recommendations: \(error)")
+                    print("Failed to fetch sent recommendations: \(error)")
                     return
                 }
 
@@ -228,9 +419,9 @@ struct HomeView: View {
                         rec.id = doc.documentID
                         group.enter()
 
-                        db.collection("users").document(rec.fromUID).getDocument { userDoc, _ in
+                        db.collection("users").document(rec.toUID).getDocument { userDoc, _ in
                             let username = userDoc?.get("username") as? String ?? "unknown"
-                            rec.fromUsername = username
+                            rec.toUsername = username
                             results[index] = rec
                             group.leave()
                         }
@@ -238,49 +429,20 @@ struct HomeView: View {
                 }
 
                 group.notify(queue: .main) {
-                    // Sort results by original index
-                    self.recommendations = (0..<docs.count).compactMap { results[$0] }
+                    self.sentRecommendations = (0..<docs.count).compactMap { results[$0] }
                 }
             }
     }
 
+    // MARK: Friend Request Listener
 
-    private func voteEmoji(for vote: Bool?) -> some View {
-        let iconName: String
-        let color: Color
-
-        switch vote {
-        case true:
-            iconName = "hand.thumbsup.fill"
-            color = .blue
-        case false:
-            iconName = "hand.thumbsdown.fill"
-            color = .red
-        default:
-            iconName = "star"
-            color = .gray
-        }
-
-        return Image(systemName: iconName)
-            .foregroundColor(color)
-            .font(.title3)
-    }
-    
-    private func formattedTimeAgo(from date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: Date())
-    }
-    
     func startListeningForFriendRequests() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
         Firestore.firestore().collection("users").document(uid)
-            .addSnapshotListener { docSnapshot, error in
-                guard let doc = docSnapshot, let data = doc.data() else { return }
-                let requests = data["friendRequests"] as? [String] ?? []
-                pendingRequestCount = requests.count
+            .addSnapshotListener { docSnapshot, _ in
+                let data = docSnapshot?.data() ?? [:]
+                pendingRequestCount = (data["friendRequests"] as? [String])?.count ?? 0
             }
     }
-
 }
