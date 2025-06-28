@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct ReadOnlyRecommendationView: View {
+struct SentRecommendationDetailView: View {
     var recommendation: Recommendation
 
     var body: some View {

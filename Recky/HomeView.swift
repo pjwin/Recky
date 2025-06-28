@@ -3,18 +3,16 @@ import FirebaseFirestore
 import SwiftUI
 
 struct HomeView: View {
+    @AppStorage("hasPulledToRefresh") private var hasPulledToRefresh = false
     @EnvironmentObject var session: SessionManager
 
     @State private var recommendations: [Recommendation] = []
     @State private var sentRecommendations: [Recommendation] = []
-
     @State private var showSendView = false
     @State private var showProfile = false
     @State private var showAllRecommendations = false
     @State private var showAllSent = false
     @State private var pendingRequestCount: Int = 0
-    @AppStorage("hasPulledToRefresh") private var hasPulledToRefresh = false
-
     @State private var isLatestExpanded = true
     @State private var isSentExpanded = true
 
@@ -27,7 +25,7 @@ struct HomeView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
-                        latestRecommendationsSection
+                        recommendationsSection
                         sentRecommendationsSection
                     }
                     .padding(.vertical)
@@ -48,7 +46,7 @@ struct HomeView: View {
                 ProfileView()
             }
             .navigationDestination(isPresented: $showAllRecommendations) {
-                AllRecommendationsView()
+                RecommendationsView()
             }
             .navigationDestination(isPresented: $showAllSent) {
                 SentRecommendationsView()
@@ -112,7 +110,7 @@ struct HomeView: View {
 
     // MARK: Latest Recommendations
 
-    private var latestRecommendationsSection: some View {
+    private var recommendationsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Button(action: {
@@ -198,7 +196,7 @@ struct HomeView: View {
                 } else {
                     VStack(spacing: 12) {
                         ForEach(Array(sentRecommendations.prefix(5))) { rec in
-                            NavigationLink(destination: ReadOnlyRecommendationView(recommendation: rec)) {
+                            NavigationLink(destination: SentRecommendationDetailView(recommendation: rec)) {
                                 sentRecommendationRow(for: rec)
                             }
                         }
