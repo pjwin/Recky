@@ -6,15 +6,15 @@ struct HomeView: View {
     @AppStorage("hasPulledToRefresh") private var hasPulledToRefresh = false
     @EnvironmentObject var session: SessionManager
 
-    @State private var recommendations: [Recommendation] = []
-    @State private var sentRecommendations: [Recommendation] = []
+    @State private var recs: [Recommendation] = []
+    @State private var sentRecs: [Recommendation] = []
+    @State private var showAllRecs = false
+    @State private var showAllSentRecs = false
+    @State private var isRecsExpanded = true
+    @State private var isSentExpanded = true
     @State private var showSendView = false
     @State private var showProfile = false
-    @State private var showAllRecommendations = false
-    @State private var showAllSent = false
-    @State private var pendingRequestCount: Int = 0
-    @State private var isLatestExpanded = true
-    @State private var isSentExpanded = true
+    @State private var pendingFriendRequestCount: Int = 0
 
     var body: some View {
         NavigationStack {
@@ -31,8 +31,7 @@ struct HomeView: View {
                     .padding(.vertical)
                 }
                 .refreshable {
-                    loadRecommendations()
-                    loadSentRecommendations()
+                    loadAllRecommendations()
                     hasPulledToRefresh = true
                 }
 
@@ -45,15 +44,14 @@ struct HomeView: View {
             .sheet(isPresented: $showProfile) {
                 ProfileView()
             }
-            .navigationDestination(isPresented: $showAllRecommendations) {
+            .navigationDestination(isPresented: $showAllRecs) {
                 RecommendationsView()
             }
-            .navigationDestination(isPresented: $showAllSent) {
+            .navigationDestination(isPresented: $showAllSentRecs) {
                 SentRecommendationsView()
             }
             .onAppear {
-                loadRecommendations()
-                loadSentRecommendations()
+                loadAllRecommendations()
                 startListeningForFriendRequests()
             }
         }
@@ -80,8 +78,8 @@ struct HomeView: View {
                             .frame(width: 28, height: 28)
                     }
 
-                    if pendingRequestCount > 0 {
-                        Text("\(pendingRequestCount)")
+                    if pendingFriendRequestCount > 0 {
+                        Text("\(pendingFriendRequestCount)")
                             .font(.caption2)
                             .foregroundColor(.white)
                             .padding(5)
@@ -114,12 +112,12 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Button(action: {
-                    isLatestExpanded.toggle()
+                    isRecsExpanded.toggle()
                 }) {
                     HStack {
                         Image(systemName: "chevron.right")
-                            .rotationEffect(.degrees(isLatestExpanded ? 90 : 0))
-                            .animation(.easeInOut(duration: 0.2), value: isLatestExpanded)
+                            .rotationEffect(.degrees(isRecsExpanded ? 90 : 0))
+                            .animation(.easeInOut(duration: 0.2), value: isRecsExpanded)
                         Text("Latest Recommendations")
                             .font(.headline)
                             .fontWeight(.bold)
@@ -129,14 +127,14 @@ struct HomeView: View {
                 Spacer()
 
                 Button("See All >") {
-                    showAllRecommendations = true
+                    showAllRecs = true
                 }
                 .font(.subheadline)
                 .foregroundColor(.blue)
             }
 
-            if isLatestExpanded {
-                if recommendations.isEmpty {
+            if isRecsExpanded {
+                if recs.isEmpty {
                     Text("No recent recommendations.")
                         .foregroundColor(.gray)
                         .padding(.top, 4)
@@ -149,9 +147,9 @@ struct HomeView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
 
-                        ForEach(Array(recommendations.prefix(5))) { rec in
+                        ForEach(Array(recs.prefix(5))) { rec in
                             NavigationLink(destination: RecommendationDetailView(recommendation: rec)) {
-                                recommendationRow(for: rec)
+                                RecommendationRowView(recommendation: rec, isSent: false)
                             }
                         }
                     }
@@ -182,22 +180,22 @@ struct HomeView: View {
                 Spacer()
 
                 Button("See All >") {
-                    showAllSent = true
+                    showAllSentRecs = true
                 }
                 .font(.subheadline)
                 .foregroundColor(.blue)
             }
 
             if isSentExpanded {
-                if sentRecommendations.isEmpty {
+                if sentRecs.isEmpty {
                     Text("You haven't sent any yet.")
                         .foregroundColor(.gray)
                         .padding(.top, 4)
                 } else {
                     VStack(spacing: 12) {
-                        ForEach(Array(sentRecommendations.prefix(5))) { rec in
+                        ForEach(Array(sentRecs.prefix(5))) { rec in
                             NavigationLink(destination: SentRecommendationDetailView(recommendation: rec)) {
-                                sentRecommendationRow(for: rec)
+                                RecommendationRowView(recommendation: rec, isSent: true)
                             }
                         }
                     }
@@ -205,140 +203,6 @@ struct HomeView: View {
                 }
             }
         }
-    }
-
-    // MARK: Recommendation Row
-
-    private func recommendationRow(for rec: Recommendation) -> some View {
-        let hasVoted = rec.vote != nil
-        let typeEmoji = EmojiUtils.forType(rec.type)
-        let voteIconName: String? = {
-            switch rec.vote {
-            case true: return "hand.thumbsup.fill"
-            case false: return "hand.thumbsdown.fill"
-            default: return nil
-            }
-        }()
-
-        return HStack(alignment: .top, spacing: 12) {
-            Group {
-                if let iconName = voteIconName {
-                    Image(systemName: iconName)
-                        .font(.title2)
-                        .foregroundColor(rec.vote == true ? .blue : .red)
-                } else {
-                    Color.clear
-                        .frame(width: 22, height: 22)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .top) {
-                    Text("\(typeEmoji) \(rec.title)")
-                        .font(.body)
-                        .lineLimit(1)
-
-                    Spacer()
-
-                    if !hasVoted {
-                        Text("NEW")
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .padding(4)
-                            .background(Color.blue.opacity(0.15))
-                            .foregroundColor(.blue)
-                            .cornerRadius(4)
-                    }
-                }
-
-                Text("from @\(rec.fromUsername ?? "unknown")")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .foregroundColor(.gray)
-        }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(10)
-        .overlay(
-            !hasVoted ?
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.blue.opacity(0.4), lineWidth: 1)
-                : nil
-        )
-    }
-
-    private func sentRecommendationRow(for rec: Recommendation) -> some View {
-        let typeEmoji = EmojiUtils.forType(rec.type)
-        let hasVote = rec.vote != nil
-
-        let voteIconName: String? = {
-            switch rec.vote {
-            case true: return "hand.thumbsup.fill"
-            case false: return "hand.thumbsdown.fill"
-            default: return nil
-            }
-        }()
-
-        return HStack(alignment: .top, spacing: 12) {
-            Group {
-                if let iconName = voteIconName {
-                    Image(systemName: iconName)
-                        .font(.title2)
-                        .foregroundColor(rec.vote == true ? .blue : .red)
-                } else {
-                    Color.clear
-                        .frame(width: 22, height: 22)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("\(typeEmoji) \(rec.title)")
-                    .font(.body)
-                    .lineLimit(1)
-
-                Text("to @\(rec.toUsername ?? "unknown")")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-
-                voteStatus(for: rec.vote)
-            }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .foregroundColor(.gray)
-        }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(10)
-        .overlay(
-            !hasVote
-                ? RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.blue.opacity(0.4), lineWidth: 1)
-                : nil
-        )
-    }
-
-    private func voteStatus(for vote: Bool?) -> some View {
-        Group {
-            switch vote {
-            case true:
-                Label("Liked", systemImage: "hand.thumbsup.fill")
-                    .foregroundColor(.blue)
-            case false:
-                Label("Disliked", systemImage: "hand.thumbsdown.fill")
-                    .foregroundColor(.red)
-            default:
-                Text("No vote yet")
-                    .foregroundColor(.gray)
-            }
-        }
-        .font(.caption)
     }
 
     // MARK: Recommend Button
@@ -360,53 +224,39 @@ struct HomeView: View {
     }
 
     // MARK: Data Load
-
-    private func loadRecommendations() {
+    
+    private func loadAllRecommendations() {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
 
+        fetchRecommendations(
+            matchingField: "toUID",
+            equalTo: myUID,
+            assignUsernameTo: \.fromUsername,
+            assignTo: { self.recs = $0 }
+        )
+
+        fetchRecommendations(
+            matchingField: "fromUID",
+            equalTo: myUID,
+            assignUsernameTo: \.toUsername,
+            assignTo: { self.sentRecs = $0 }
+        )
+    }
+    
+    private func fetchRecommendations(
+        matchingField field: String,
+        equalTo uid: String,
+        assignUsernameTo assignKeyPath: WritableKeyPath<Recommendation, String?>,
+        assignTo output: @escaping ([Recommendation]) -> Void
+    ) {
         let db = Firestore.firestore()
+
         db.collection("recommendations")
-            .whereField("toUID", isEqualTo: myUID)
+            .whereField(field, isEqualTo: uid)
             .order(by: "timestamp", descending: true)
             .limit(to: 10)
             .getDocuments { snapshot, error in
                 guard error == nil else { return }
-                let docs = snapshot?.documents ?? []
-                var results: [Int: Recommendation] = [:]
-                let group = DispatchGroup()
-
-                for (index, doc) in docs.enumerated() {
-                    if var rec = try? doc.data(as: Recommendation.self) {
-                        rec.id = doc.documentID
-                        group.enter()
-                        db.collection("users").document(rec.fromUID).getDocument { userDoc, _ in
-                            rec.fromUsername = userDoc?.get("username") as? String ?? "unknown"
-                            results[index] = rec
-                            group.leave()
-                        }
-                    }
-                }
-
-                group.notify(queue: .main) {
-                    self.recommendations = (0..<docs.count).compactMap { results[$0] }
-                }
-            }
-    }
-
-    private func loadSentRecommendations() {
-        guard let myUID = Auth.auth().currentUser?.uid else { return }
-
-        let db = Firestore.firestore()
-
-        db.collection("recommendations")
-            .whereField("fromUID", isEqualTo: myUID)
-            .order(by: "timestamp", descending: true)
-            .limit(to: 10)
-            .getDocuments { snapshot, error in
-                if let error = error {
-                    print("Failed to fetch sent recommendations: \(error)")
-                    return
-                }
 
                 let docs = snapshot?.documents ?? []
                 var results: [Int: Recommendation] = [:]
@@ -417,9 +267,12 @@ struct HomeView: View {
                         rec.id = doc.documentID
                         group.enter()
 
-                        db.collection("users").document(rec.toUID).getDocument { userDoc, _ in
+                        // Decide which UID to fetch username for
+                        let lookupUID = field == "toUID" ? rec.fromUID : rec.toUID
+
+                        db.collection("users").document(lookupUID).getDocument { userDoc, _ in
                             let username = userDoc?.get("username") as? String ?? "unknown"
-                            rec.toUsername = username
+                            rec[keyPath: assignKeyPath] = username
                             results[index] = rec
                             group.leave()
                         }
@@ -427,10 +280,13 @@ struct HomeView: View {
                 }
 
                 group.notify(queue: .main) {
-                    self.sentRecommendations = (0..<docs.count).compactMap { results[$0] }
+                    let sorted = (0..<docs.count).compactMap { results[$0] }
+                    output(sorted)
                 }
             }
     }
+
+    
 
     // MARK: Friend Request Listener
 
@@ -440,7 +296,7 @@ struct HomeView: View {
         Firestore.firestore().collection("users").document(uid)
             .addSnapshotListener { docSnapshot, _ in
                 let data = docSnapshot?.data() ?? [:]
-                pendingRequestCount = (data["friendRequests"] as? [String])?.count ?? 0
+                pendingFriendRequestCount = (data["friendRequests"] as? [String])?.count ?? 0
             }
     }
 }
