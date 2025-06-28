@@ -117,7 +117,10 @@ struct HomeView: View {
                     HStack {
                         Image(systemName: "chevron.right")
                             .rotationEffect(.degrees(isRecsExpanded ? 90 : 0))
-                            .animation(.easeInOut(duration: 0.2), value: isRecsExpanded)
+                            .animation(
+                                .easeInOut(duration: 0.2),
+                                value: isRecsExpanded
+                            )
                         Text("Latest Recommendations")
                             .font(.headline)
                             .fontWeight(.bold)
@@ -147,11 +150,10 @@ struct HomeView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
 
-                        ForEach(Array(recs.prefix(5))) { rec in
-                            NavigationLink(destination: RecommendationDetailView(recommendation: rec)) {
-                                RecommendationRowView(recommendation: rec, isSent: false)
-                            }
-                        }
+                        RecommendationCardList(
+                            recommendations: recs,
+                            maxCount: 5
+                        )
                     }
                     .padding(.top)
                 }
@@ -170,7 +172,10 @@ struct HomeView: View {
                     HStack {
                         Image(systemName: "chevron.right")
                             .rotationEffect(.degrees(isSentExpanded ? 90 : 0))
-                            .animation(.easeInOut(duration: 0.2), value: isSentExpanded)
+                            .animation(
+                                .easeInOut(duration: 0.2),
+                                value: isSentExpanded
+                            )
                         Text("Sent Recommendations")
                             .font(.headline)
                             .fontWeight(.bold)
@@ -193,11 +198,10 @@ struct HomeView: View {
                         .padding(.top, 4)
                 } else {
                     VStack(spacing: 12) {
-                        ForEach(Array(sentRecs.prefix(5))) { rec in
-                            NavigationLink(destination: SentRecommendationDetailView(recommendation: rec)) {
-                                RecommendationRowView(recommendation: rec, isSent: true)
-                            }
-                        }
+                        RecommendationCardList(
+                            recommendations: sentRecs,
+                            maxCount: 5
+                        )
                     }
                     .padding(.top)
                 }
@@ -224,7 +228,7 @@ struct HomeView: View {
     }
 
     // MARK: Data Load
-    
+
     private func loadAllRecommendations() {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
 
@@ -242,11 +246,13 @@ struct HomeView: View {
             assignTo: { self.sentRecs = $0 }
         )
     }
-    
+
     private func fetchRecommendations(
         matchingField field: String,
         equalTo uid: String,
-        assignUsernameTo assignKeyPath: WritableKeyPath<Recommendation, String?>,
+        assignUsernameTo assignKeyPath: WritableKeyPath<
+            Recommendation, String?
+        >,
         assignTo output: @escaping ([Recommendation]) -> Void
     ) {
         let db = Firestore.firestore()
@@ -268,10 +274,14 @@ struct HomeView: View {
                         group.enter()
 
                         // Decide which UID to fetch username for
-                        let lookupUID = field == "toUID" ? rec.fromUID : rec.toUID
+                        let lookupUID =
+                            field == "toUID" ? rec.fromUID : rec.toUID
 
-                        db.collection("users").document(lookupUID).getDocument { userDoc, _ in
-                            let username = userDoc?.get("username") as? String ?? "unknown"
+                        db.collection("users").document(lookupUID).getDocument {
+                            userDoc,
+                            _ in
+                            let username =
+                                userDoc?.get("username") as? String ?? "unknown"
                             rec[keyPath: assignKeyPath] = username
                             results[index] = rec
                             group.leave()
@@ -286,8 +296,6 @@ struct HomeView: View {
             }
     }
 
-    
-
     // MARK: Friend Request Listener
 
     func startListeningForFriendRequests() {
@@ -296,7 +304,8 @@ struct HomeView: View {
         Firestore.firestore().collection("users").document(uid)
             .addSnapshotListener { docSnapshot, _ in
                 let data = docSnapshot?.data() ?? [:]
-                pendingFriendRequestCount = (data["friendRequests"] as? [String])?.count ?? 0
+                pendingFriendRequestCount =
+                    (data["friendRequests"] as? [String])?.count ?? 0
             }
     }
 }

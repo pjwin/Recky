@@ -5,7 +5,6 @@
 //  Created by Paul Winters on 6/28/25.
 //
 
-
 import SwiftUI
 
 struct RecommendationRowView: View {
@@ -28,7 +27,9 @@ struct RecommendationRowView: View {
                 if let iconName = voteIconName {
                     Image(systemName: iconName)
                         .font(.title2)
-                        .foregroundColor(recommendation.vote == true ? .blue : .red)
+                        .foregroundColor(
+                            recommendation.vote == true ? .blue : .red
+                        )
                 } else {
                     Color.clear.frame(width: 22, height: 22)
                 }
@@ -53,11 +54,17 @@ struct RecommendationRowView: View {
                     }
                 }
 
-                Text(
-                    isSent
-                    ? "to @\(recommendation.toUsername ?? "unknown")"
-                    : "from @\(recommendation.fromUsername ?? "unknown")"
-                )
+                HStack {
+                    Text(
+                        isSent
+                        ? "to @\(recommendation.toUsername ?? "unknown")"
+                        : "from @\(recommendation.fromUsername ?? "unknown")"
+                    )
+
+                    Spacer()
+
+                    Text(timeAgoString(from: recommendation.timestamp))
+                }
                 .font(.caption)
                 .foregroundColor(.gray)
             }
@@ -76,5 +83,11 @@ struct RecommendationRowView: View {
                     .stroke(Color.blue.opacity(0.4), lineWidth: 1)
                 : nil
         )
+    }
+
+    private func timeAgoString(from date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 }
