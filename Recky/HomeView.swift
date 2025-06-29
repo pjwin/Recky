@@ -48,7 +48,7 @@ struct HomeView: View {
                 RecommendationsView()
             }
             .navigationDestination(isPresented: $showAllSentRecs) {
-                SentRecommendationsView()
+                RecommendationsView()
             }
             .onAppear {
                 loadAllRecommendations()
