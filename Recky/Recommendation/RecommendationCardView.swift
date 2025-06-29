@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct RecommendationRowView: View {
+struct RecommendationCardView: View {
     let recommendation: Recommendation
     let isSent: Bool
 

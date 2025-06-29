@@ -18,6 +18,8 @@ class RecommendationListViewModel: ObservableObject {
     @Published var selectedType: String? = nil
     @Published var selectedUser: String? = nil
     @Published var loading = false
+    @Published var titleQuery: String = ""
+
 
     private var myUID: String? {
         Auth.auth().currentUser?.uid
@@ -60,12 +62,12 @@ class RecommendationListViewModel: ObservableObject {
 
                 group.notify(queue: .main) {
                     self.allRecommendations = results
-                    self.applyFilters()
+                    self.applySearch()
                 }
             }
     }
 
-    func applyFilters() {
+    func applySearch() {
         guard let uid = myUID else { return }
 
         filteredRecommendations = allRecommendations.filter { rec in
@@ -73,21 +75,23 @@ class RecommendationListViewModel: ObservableObject {
             let isReceived = rec.toUID == uid
 
             let directionAllowed = (isSent && showSent) || (isReceived && showReceived)
-
             let matchesType = selectedType == nil || rec.type.lowercased() == selectedType?.lowercased()
             let matchesUser = selectedUser == nil ||
                 (isSent && rec.toUsername?.lowercased().contains(selectedUser!.lowercased()) == true) ||
                 (isReceived && rec.fromUsername?.lowercased().contains(selectedUser!.lowercased()) == true)
+            let matchesTitle = titleQuery.isEmpty || rec.title.lowercased().contains(titleQuery.lowercased())
 
-            return directionAllowed && matchesType && matchesUser
+            return directionAllowed && matchesType && matchesUser && matchesTitle
         }
     }
 
-    func resetFilters() {
+
+    func resetSearch() {
         showReceived = true
         showSent = true
         selectedType = nil
         selectedUser = nil
-        applyFilters()
+        titleQuery = ""
+        applySearch()
     }
 }

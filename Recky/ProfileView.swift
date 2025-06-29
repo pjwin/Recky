@@ -19,39 +19,15 @@ struct ProfileView: View {
                     Text("Signed in as: \(email)")
                         .font(.subheadline)
                         .foregroundColor(.gray)
-                }
-
-                if let stats = myStats {
-                    VStack(alignment: .leading, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Recommendations Sent:")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-
-                            statRow(icon: "👍", label: "Thumbs Up", count: stats.sentThumbsUp, percentage: stats.sentUpPercentage)
-                            statRow(icon: "👎", label: "Thumbs Down", count: stats.sentThumbsDown, percentage: stats.sentDownPercentage)
-                            statRow(icon: "❓", label: "No Vote", count: stats.sentNoVote, percentage: stats.sentNoVotePercentage)
-                            statRow(icon: "📦", label: "Total Sent", count: stats.sentTotal)
-                        }
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Recommendations Received:")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-
-                            statRow(icon: "👍", label: "Thumbs Up", count: stats.receivedThumbsUp, percentage: stats.receivedUpPercentage)
-                            statRow(icon: "👎", label: "Thumbs Down", count: stats.receivedThumbsDown, percentage: stats.receivedDownPercentage)
-                            statRow(icon: "❓", label: "No Vote", count: stats.receivedNoVote, percentage: stats.receivedNoVotePercentage)
-                            statRow(icon: "📥", label: "Total Received", count: stats.receivedTotal)
-                        }
+                    
+                    Button("Sign Out") {
+                        session.signOut()
                     }
-                    .padding(.horizontal)
-                } else {
-                    Text("Loading your stats...")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
+                    .foregroundColor(.red)
+                    
+                    Divider()
                 }
-
+                
                 NavigationLink(destination: FriendsPageView()) {
                     HStack {
                         Spacer()
@@ -79,11 +55,36 @@ struct ProfileView: View {
                     .cornerRadius(10)
                 }
 
-                Button("Sign Out") {
-                    session.signOut()
+                if let stats = myStats {
+                    VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Recommendations Sent:")
+                                .font(.body)
+                                .foregroundColor(.gray)
+
+                            statRow(icon: "👍", label: "Thumbs Up", count: stats.sentThumbsUp, percentage: stats.sentUpPercentage)
+                            statRow(icon: "👎", label: "Thumbs Down", count: stats.sentThumbsDown, percentage: stats.sentDownPercentage)
+                            statRow(icon: "❓", label: "No Vote", count: stats.sentNoVote, percentage: stats.sentNoVotePercentage)
+                            statRow(icon: "📦", label: "Total Sent", count: stats.sentTotal)
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Recommendations Received:")
+                                .font(.body)
+                                .foregroundColor(.gray)
+
+                            statRow(icon: "👍", label: "Thumbs Up", count: stats.receivedThumbsUp, percentage: stats.receivedUpPercentage)
+                            statRow(icon: "👎", label: "Thumbs Down", count: stats.receivedThumbsDown, percentage: stats.receivedDownPercentage)
+                            statRow(icon: "❓", label: "No Vote", count: stats.receivedNoVote, percentage: stats.receivedNoVotePercentage)
+                            statRow(icon: "📥", label: "Total Received", count: stats.receivedTotal)
+                        }
+                    }
+                    .padding(.horizontal)
+                } else {
+                    Text("Loading your stats...")
+                        .font(.body)
+                        .foregroundColor(.gray)
                 }
-                .foregroundColor(.red)
-                .padding(.top, 30)
 
                 Spacer()
 
@@ -104,16 +105,23 @@ struct ProfileView: View {
     @ViewBuilder
     func statRow(icon: String, label: String, count: Int, percentage: String? = nil) -> some View {
         HStack {
-            Text("\(icon) \(label):")
-                .frame(width: 140, alignment: .leading)
+            HStack {
+                Text(icon)
+                Text(label)
+                    .fontWeight(.medium)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             Text("\(count)")
-                .frame(width: 30, alignment: .trailing)
+                .frame(width: 40, alignment: .trailing)
+
             if let pct = percentage {
                 Text("(\(pct))")
                     .foregroundColor(.gray)
+                    .frame(width: 60, alignment: .trailing)
             }
         }
-        .font(.caption2)
+        .font(.body)
     }
 
     func listenForFriendRequests() {

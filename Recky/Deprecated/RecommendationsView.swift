@@ -38,7 +38,7 @@ struct RecommendationsView: View {
                 Spacer()
             } else {
                 ScrollView {
-                    RecommendationCardList(
+                    RecommendationCardListView(
                         recommendations: filteredRecommendations,
                         maxCount: nil
                     )
@@ -62,7 +62,7 @@ struct RecommendationsView: View {
             : AnyView(RecommendationDetailView(recommendation: rec))
 
         NavigationLink(destination: destination) {
-            RecommendationRowView(
+            RecommendationCardView(
                 recommendation: rec,
                 isSent: isSent
             )

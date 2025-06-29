@@ -9,7 +9,7 @@
 import SwiftUI
 import FirebaseAuth
 
-struct RecommendationCardList: View {
+struct RecommendationCardListView: View {
     let recommendations: [Recommendation]
     let maxCount: Int?
 
@@ -23,7 +23,7 @@ struct RecommendationCardList: View {
                         ? AnyView(SentRecommendationDetailView(recommendation: rec))
                         : AnyView(RecommendationDetailView(recommendation: rec))
                 ) {
-                    RecommendationRowView(recommendation: rec, isSent: isSent)
+                    RecommendationCardView(recommendation: rec, isSent: isSent)
                 }
             }
         }
