@@ -5,6 +5,7 @@
 //  Created by Paul Winters on 6/28/25.
 //
 
+import FirebaseAuth
 import SwiftUI
 
 struct RecommendationCardView: View {
@@ -12,6 +13,7 @@ struct RecommendationCardView: View {
     let isSent: Bool
 
     var body: some View {
+        let currentUserUID = Auth.auth().currentUser?.uid
         let hasVoted = recommendation.vote != nil
         let typeEmoji = EmojiUtils.forType(recommendation.type)
         let voteIconName: String? = {
@@ -43,22 +45,26 @@ struct RecommendationCardView: View {
 
                     Spacer()
 
-                    if !hasVoted && !isSent {
+                    if let currentUserUID = currentUserUID,
+                        recommendation.toUID == currentUserUID,
+                        !(recommendation.hasBeenViewedByRecipient ?? false)
+                    {
                         Text("NEW")
                             .font(.caption2)
-                            .fontWeight(.bold)
-                            .padding(4)
-                            .background(Color.blue.opacity(0.15))
                             .foregroundColor(.blue)
-                            .cornerRadius(4)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.15))
+                            .cornerRadius(10)
+                            .transition(.opacity)
                     }
                 }
 
                 HStack {
                     Text(
                         isSent
-                        ? "to @\(recommendation.toUsername ?? "unknown")"
-                        : "from @\(recommendation.fromUsername ?? "unknown")"
+                            ? "to @\(recommendation.toUsername ?? "unknown")"
+                            : "from @\(recommendation.fromUsername ?? "unknown")"
                     )
 
                     Spacer()
@@ -83,6 +89,7 @@ struct RecommendationCardView: View {
                     .stroke(Color.blue.opacity(0.4), lineWidth: 1)
                 : nil
         )
+        .animation(.easeOut(duration: 0.3), value: recommendation.hasBeenViewedByRecipient)
     }
 
     private func timeAgoString(from date: Date) -> String {

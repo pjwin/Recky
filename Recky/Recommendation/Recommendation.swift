@@ -8,7 +8,7 @@
 import FirebaseFirestore
 import Foundation
 
-struct Recommendation: Identifiable, Codable {
+struct Recommendation: Identifiable, Codable, Hashable {
     @DocumentID var id: String?
     var fromUID: String
     var toUID: String
@@ -17,6 +17,8 @@ struct Recommendation: Identifiable, Codable {
     var notes: String?
     var timestamp: Date
     var vote: Bool?
+    var voteNote: String? = nil
     var fromUsername: String?
     var toUsername: String?
+    var hasBeenViewedByRecipient: Bool? = false
 }

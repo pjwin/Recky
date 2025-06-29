@@ -7,7 +7,8 @@ struct SentRecommendationDetailView: View {
         RecommendationBaseDetailView(
             recommendation: recommendation,
             titlePrefix: "To @",
-            editableVote: false
+            editableVote: false,
+            editableNote: false
         )
         .navigationTitle(recommendation.toUsername.map { "To @\($0)" } ?? "Sent Recommendation")
         .navigationBarTitleDisplayMode(.inline)

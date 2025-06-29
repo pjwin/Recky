@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SendRecommendationView: View {
     @Environment(\.dismiss) var dismiss
+    var prefilledRecommendation: Recommendation? = nil
 
     @State private var title = ""
     @State private var type = RecommendationType.movie.rawValue
@@ -64,6 +65,13 @@ struct SendRecommendationView: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                }
+            }
+            .onAppear {
+                if let rec = prefilledRecommendation {
+                    if title.isEmpty { title = rec.title }
+                    if notes.isEmpty, let recNotes = rec.notes { notes = recNotes }
+                    if rec.type.isEmpty == false { type = rec.type }
                 }
             }
         }

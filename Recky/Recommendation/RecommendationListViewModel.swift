@@ -42,6 +42,7 @@ class RecommendationListViewModel: ObservableObject {
                 for doc in docs {
                     if var rec = try? doc.data(as: Recommendation.self) {
                         rec.id = doc.documentID
+                        rec.hasBeenViewedByRecipient = doc.get("hasBeenViewedByRecipient") as? Bool ?? false
                         group.enter()
 
                         let userID = rec.fromUID == uid ? rec.toUID : rec.fromUID
