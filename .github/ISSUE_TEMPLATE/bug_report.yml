@@ -1,0 +1,40 @@
+name: Bug Report
+description: Report a bug in the app
+labels: [bug]
+body:
+  - type: input
+    id: title
+    attributes:
+      label: Short Summary
+      placeholder: e.g. Crash when saving without vote
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Tell us how to trigger the bug
+      placeholder: |
+        1. Go to the recommendation screen
+        2. Tap Save without selecting a vote
+        3. App crashes
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs Actual
+      placeholder: Should warn user instead of crashing
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: iPhone 13, iOS 17.2
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional Info / Screenshot
