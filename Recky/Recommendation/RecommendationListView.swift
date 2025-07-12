@@ -1,10 +1,3 @@
-//
-//  RecommendationListView.swift
-//  Recky
-//
-//  Created by Paul Winters on 6/28/25.
-//
-
 import FirebaseAuth
 import SwiftUI
 

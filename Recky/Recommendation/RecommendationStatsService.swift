@@ -1,11 +1,3 @@
-//
-//  FriendStats 2.swift
-//  Recky
-//
-//  Created by Paul Winters on 6/23/25.
-//
-
-
 import FirebaseFirestore
 import FirebaseAuth
 

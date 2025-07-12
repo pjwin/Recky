@@ -130,7 +130,7 @@ struct SendRecommendationView: View {
     private func searchUsernames() {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
 
-        RecommendationService.shared.searchUsers(query: usernameQuery, excludeUID: myUID) { results in
+        FriendService.shared.searchFriends(query: usernameQuery, currentUID: myUID) { results in
             searchResults = results
         }
     }
@@ -152,7 +152,8 @@ struct SendRecommendationView: View {
                 notes: notes.isEmpty ? nil : notes,
                 timestamp: timestamp,
                 vote: nil,
-                fromUsername: nil
+                fromUsername: Auth.auth().currentUser?.displayName ?? "unknown", // or fetch from user model
+                toUsername: friend.username,
             )
 
             group.enter()

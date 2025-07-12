@@ -37,7 +37,9 @@ class RecommendationService {
     func send(_ rec: Recommendation, completion: @escaping (Result<Void, Error>) -> Void) {
         var data: [String: Any] = [
             "fromUID": rec.fromUID,
+            "fromUsername": rec.fromUsername ?? "",
             "toUID": rec.toUID,
+            "toUsername": rec.toUsername ?? "",
             "title": rec.title,
             "type": rec.type,
             "timestamp": FieldValue.serverTimestamp(),

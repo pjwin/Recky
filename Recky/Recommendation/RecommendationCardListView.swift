@@ -1,11 +1,3 @@
-//
-//  RecommendationCardList.swift
-//  Recky
-//
-//  Created by Paul Winters on 6/28/25.
-//
-
-
 import SwiftUI
 import FirebaseAuth
 

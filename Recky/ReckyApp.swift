@@ -1,10 +1,3 @@
-//
-//  ReckyApp.swift
-//  Recky
-//
-//  Created by Paul Winters on 6/17/25.
-//
-
 import FirebaseCore
 import SwiftUI
 import GoogleSignIn

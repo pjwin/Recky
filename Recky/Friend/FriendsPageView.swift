@@ -152,33 +152,23 @@ struct FriendsPageView: View {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
         let db = Firestore.firestore()
 
-        db.collection("users").document(myUID).getDocument { doc, _ in
-            guard let data = doc?.data(),
-                  let friendUIDs = data["friends"] as? [String]
-            else { return }
+        db.collection("users").document(myUID).collection("friends").getDocuments { snapshot, _ in
+            guard let docs = snapshot?.documents else { return }
 
-            var loadedFriends: [Friend] = []
-            let group = DispatchGroup()
-
-            for uid in friendUIDs {
-                group.enter()
-                db.collection("users").document(uid).getDocument { doc, _ in
-                    let username = doc?.get("username") as? String ?? "Unknown"
-                    loadedFriends.append(Friend(id: uid, username: username))
-                    group.leave()
-                }
+            let loadedFriends = docs.map { doc in
+                Friend(id: doc.documentID, username: doc.get("username") as? String ?? "Unknown")
             }
 
-            group.notify(queue: .main) {
-                self.friends = loadedFriends
-                for friend in loadedFriends {
-                    RecommendationStatsService.fetchStats(for: friend.id) { stats in
-                        friendStatsByUID[friend.id] = stats
-                    }
+            self.friends = loadedFriends
+
+            for friend in loadedFriends {
+                RecommendationStatsService.fetchStats(for: friend.id) { stats in
+                    friendStatsByUID[friend.id] = stats
                 }
             }
         }
     }
+
 
     private func removeFriend(_ friend: Friend) {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
@@ -188,8 +178,8 @@ struct FriendsPageView: View {
         let myRef = db.collection("users").document(myUID)
         let otherRef = db.collection("users").document(uid)
 
-        myRef.updateData(["friends": FieldValue.arrayRemove([uid])])
-        otherRef.updateData(["friends": FieldValue.arrayRemove([myUID])])
+        myRef.collection("friends").document(uid).delete()
+        otherRef.collection("friends").document(myUID).delete()
 
         friends.removeAll { $0.id == uid }
     }

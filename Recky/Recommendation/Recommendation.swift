@@ -1,10 +1,3 @@
-//
-//  Recommendation.swift
-//  Recky
-//
-//  Created by Paul Winters on 6/20/25.
-//
-
 import FirebaseFirestore
 import Foundation
 

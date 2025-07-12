@@ -1,10 +1,3 @@
-//
-//  FriendRequestsView.swift
-//  Recky
-//
-//  Created by Paul Winters on 6/18/25.
-//
-
 import FirebaseAuth
 import FirebaseFirestore
 import SwiftUI
@@ -74,19 +67,40 @@ struct FriendRequestsView: View {
         let myRef = db.collection("users").document(myUID)
         let otherRef = db.collection("users").document(otherUID)
 
-        myRef.updateData([
-            "friendRequests": FieldValue.arrayRemove([otherUID]),
-            "friends": FieldValue.arrayUnion([otherUID]),
-        ])
+        // Fetch other user's username
+        otherRef.getDocument { snapshot, error in
+            guard let data = snapshot?.data(),
+                  let otherUsername = data["username"] as? String else { return }
 
-        otherRef.updateData([
-            "sentRequests": FieldValue.arrayRemove([myUID]),
-            "friends": FieldValue.arrayUnion([myUID]),
-        ])
+            // Fetch my username
+            myRef.getDocument { mySnap, _ in
+                let myUsername = mySnap?.get("username") as? String ?? "Unknown"
 
-        // Optional: refresh requests list
-        loadRequests()
+                // Remove friend requests
+                myRef.updateData([
+                    "friendRequests": FieldValue.arrayRemove([otherUID])
+                ])
+                otherRef.updateData([
+                    "sentRequests": FieldValue.arrayRemove([myUID])
+                ])
+
+                // Add each other to friends subcollections
+                myRef.collection("friends").document(otherUID).setData([
+                    "username": otherUsername,
+                    "addedAt": FieldValue.serverTimestamp()
+                ])
+                otherRef.collection("friends").document(myUID).setData([
+                    "username": myUsername,
+                    "addedAt": FieldValue.serverTimestamp()
+                ])
+
+                // Refresh view
+                loadRequests()
+            }
+        }
     }
+
+
 
     func ignoreRequest(fromUID: String) {
         guard let myUID = Auth.auth().currentUser?.uid else { return }

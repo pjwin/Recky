@@ -1,0 +1,17 @@
+# Node
+node_modules/
+.env
+serviceAccountKey.json
+*.log
+
+# macOS
+.DS_Store
+
+# Swift / Xcode
+DerivedData/
+*.xcworkspace
+*.xcodeproj
+*.xcuserstate
+
+# Firestore emulator data
+firestore_export/

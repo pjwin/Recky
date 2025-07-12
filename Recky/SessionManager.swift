@@ -1,11 +1,3 @@
-//
-//  SessionManager.swift
-//  Recky
-//
-//  Created by Paul Winters on 6/17/25.
-//
-
-
 import Foundation
 import FirebaseAuth
 import Combine

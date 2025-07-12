@@ -1,11 +1,3 @@
-//
-//  AuthManager.swift
-//  Recky
-//
-//  Created by Paul Winters on 6/22/25.
-//
-
-
 import Foundation
 import FirebaseAuth
 import FirebaseCore
