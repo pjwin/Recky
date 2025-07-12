@@ -1,0 +1,50 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+labels: [enhancement]
+body:
+  - type: input
+    id: title
+    attributes:
+      label: Feature Title
+      placeholder: e.g. Add dark mode support
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Clearly describe the feature or improvement you're suggesting.
+      placeholder: |
+        What should it do?
+        Why is it useful?
+    validations:
+      required: true
+
+  - type: textarea
+    id: user-value
+    attributes:
+      label: Value to Users
+      description: Who benefits from this feature? Why is it important?
+      placeholder: e.g. Improves accessibility in low-light environments
+    validations:
+      required: false
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Possible Implementation (Optional)
+      description: If you have ideas on how to implement it, describe them here.
+      placeholder: Could use system dark mode toggle via UIKit...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: Urgency
+      options:
+        - Nice to have
+        - Needed soon
+        - Critical
+      default: 0
