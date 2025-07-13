@@ -12,9 +12,14 @@ struct ReckyApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if session.user != nil {
-                HomeView()
-                    .environmentObject(session)
+            if let _ = session.user {
+                if session.isVerified {
+                    HomeView()
+                        .environmentObject(session)
+                } else {
+                    VerifyEmailPendingView()
+                        .environmentObject(session)
+                }
             } else {
                 LoginView()
                     .environmentObject(session)

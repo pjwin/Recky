@@ -14,13 +14,33 @@ class AuthManager {
         password: String,
         completion: @escaping (String?) -> Void
     ) {
-        Auth.auth().signIn(withEmail: email, password: password) { _, error in
-            if error == nil {
-                CurrentUserSession.shared.load()
+        Auth.auth().signIn(withEmail: email, password: password) { result, error in
+            if let error = error {
+                completion(error.localizedDescription)
+                return
             }
-            completion(error?.localizedDescription)
+
+            guard let user = result?.user else {
+                completion("Login failed.")
+                return
+            }
+
+            user.reload { reloadError in
+                if let reloadError = reloadError {
+                    completion("Could not check verification status: \(reloadError.localizedDescription)")
+                    return
+                }
+
+                if user.isEmailVerified {
+                    CurrentUserSession.shared.load()
+                    completion(nil)
+                } else {
+                    completion("Please verify your email before logging in.")
+                }
+            }
         }
     }
+
 
     func signUp(
         email: String,
