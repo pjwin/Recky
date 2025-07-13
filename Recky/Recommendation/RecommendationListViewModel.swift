@@ -40,25 +40,7 @@ class RecommendationListViewModel: ObservableObject {
                     var rec = try doc.data(as: Recommendation.self)
                     rec.id = doc.documentID
                     rec.hasBeenViewedByRecipient = doc.get("hasBeenViewedByRecipient") as? Bool ?? false
-
-                    let isSent = rec.fromUID == uid
-                    let userID = isSent ? rec.toUID : rec.fromUID
-                    let usernameKey = isSent ? "toUsername" : "fromUsername"
-
-                    do {
-                        let userDoc = try await Firestore.firestore().collection("users").document(userID).getDocument()
-                        let username = userDoc.get("username") as? String ?? "unknown"
-                        if usernameKey == "fromUsername" {
-                            rec.fromUsername = username
-                        } else {
-                            rec.toUsername = username
-                        }
-                    } catch {
-                        print("Failed to fetch user \(userID): \(error)")
-                    }
-
                     results.append(rec)
-
                 } catch {
                     print("Failed to parse recommendation: \(error)")
                 }
@@ -71,42 +53,6 @@ class RecommendationListViewModel: ObservableObject {
         }
 
         loading = false
-    }
-
-
-    private func processRecommendation(
-        from doc: QueryDocumentSnapshot,
-        currentUID uid: String
-    ) async -> Recommendation? {
-        guard var rec = try? doc.data(as: Recommendation.self) else {
-            return nil
-        }
-
-        rec.id = doc.documentID
-        rec.hasBeenViewedByRecipient =
-            doc.get("hasBeenViewedByRecipient") as? Bool ?? false
-
-        let isSent = rec.fromUID == uid
-        let userID = isSent ? rec.toUID : rec.fromUID
-        let usernameKey = isSent ? "toUsername" : "fromUsername"
-
-        do {
-            let userDoc = try await Firestore.firestore()
-                .collection("users")
-                .document(userID)
-                .getDocument()
-
-            let username = userDoc.get("username") as? String ?? "unknown"
-            if usernameKey == "fromUsername" {
-                rec.fromUsername = username
-            } else {
-                rec.toUsername = username
-            }
-        } catch {
-            print("Error fetching username for \(userID): \(error)")
-        }
-
-        return rec
     }
 
     func applySearch() {
