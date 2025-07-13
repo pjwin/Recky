@@ -152,7 +152,7 @@ struct SendRecommendationView: View {
                 notes: notes.isEmpty ? nil : notes,
                 timestamp: timestamp,
                 vote: nil,
-                fromUsername: Auth.auth().currentUser?.displayName ?? "unknown", // or fetch from user model
+                fromUsername: CurrentUserSession.shared.username, // or fetch from user model
                 toUsername: friend.username,
             )
 
