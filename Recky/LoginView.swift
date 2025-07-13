@@ -10,17 +10,23 @@ struct LoginView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var errorMessage: String?
+    @State private var showSignUp = false
+
 
     var body: some View {
-        VStack(spacing: 24) {
-            logo
-            welcomeText
-            emailPasswordFields
-            googleSignInButton
-            signUpButton
-            Spacer()
+        ScrollView {
+            VStack(spacing: 24) {
+                logo
+                welcomeText
+                emailPasswordFields
+                googleSignInButton
+                signUpButton
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 40)
+            .padding(.bottom, 80)
         }
-        .padding(.horizontal, 24)
+        .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 
     private var logo: some View {
@@ -97,8 +103,13 @@ struct LoginView: View {
     }
 
     private var signUpButton: some View {
-        Button("Sign Up with Email", action: signUp)
-            .foregroundColor(.blue)
+        Button("Sign Up with Email") {
+            showSignUp = true
+        }
+        .foregroundColor(.blue)
+        .sheet(isPresented: $showSignUp) {
+            SignUpView()
+        }
     }
 
     private func login() {
