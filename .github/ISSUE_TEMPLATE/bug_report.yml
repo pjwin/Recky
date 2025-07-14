@@ -2,14 +2,6 @@ name: Bug Report
 description: Report a bug in the app
 labels: [bug]
 body:
-  - type: input
-    id: title
-    attributes:
-      label: Short Summary
-      placeholder: e.g. Crash when saving without vote
-    validations:
-      required: true
-
   - type: textarea
     id: steps
     attributes:
