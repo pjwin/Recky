@@ -1,8 +1,7 @@
-import FirebaseFirestore
 import SwiftUI
 
 struct RecommendationBaseDetailView: View {
-    var recommendation: Recommendation
+    @ObservedObject var viewModel: RecommendationDetailViewModel
     var titlePrefix: String
     var editableVote: Bool
     var editableNote: Bool
@@ -13,18 +12,18 @@ struct RecommendationBaseDetailView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Text(timestampFormatted(recommendation.timestamp))
+            Text(timestampFormatted(viewModel.recommendation.timestamp))
                 .font(.caption)
                 .foregroundColor(.gray)
 
-            Text(EmojiUtils.forType(recommendation.type))
+            Text(EmojiUtils.forType(viewModel.recommendation.type))
                 .font(.largeTitle)
 
-            Text(recommendation.title)
+            Text(viewModel.recommendation.title)
                 .font(.largeTitle)
                 .bold()
 
-            if let notes = recommendation.notes, !notes.isEmpty {
+            if let notes = viewModel.recommendation.notes, !notes.isEmpty {
                 Text("“\(notes)”")
                     .italic()
                     .padding()
@@ -53,7 +52,7 @@ struct RecommendationBaseDetailView: View {
                 .padding(.top, 8)
                 .buttonStyle(PlainButtonStyle())
             } else {
-                voteIcon(for: recommendation.vote)
+                voteIcon(for: viewModel.recommendation.vote)
                     .padding(.top, 8)
             }
 
@@ -112,7 +111,7 @@ struct RecommendationBaseDetailView: View {
                         )
                     }
                 }
-            } else if let note = recommendation.voteNote, !note.isEmpty {
+            } else if let note = viewModel.recommendation.voteNote, !note.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("They wrote:")
                         .font(.caption)
@@ -129,45 +128,17 @@ struct RecommendationBaseDetailView: View {
         }
         .padding()
         .onAppear {
-            currentVote = recommendation.vote
-            voteNoteText = recommendation.voteNote ?? ""
+            currentVote = viewModel.recommendation.vote
+            voteNoteText = viewModel.recommendation.voteNote ?? ""
             originalNoteText = voteNoteText
         }
     }
 
     private func toggleVote(_ newVote: Bool) {
-        guard editableVote, let recID = recommendation.id else { return }
-
-        let ref = Firestore.firestore().collection("recommendations").document(recID)
-        let previousVote = currentVote
+        guard editableVote else { return }
         let nextVote: Bool? = (currentVote == newVote) ? nil : newVote
         currentVote = nextVote
-
-        if let vote = nextVote {
-            ref.updateData(["vote": vote]) { error in
-                if error == nil {
-                    var updatedRecommendation = recommendation
-                    updatedRecommendation.vote = vote
-                    RecommendationStatsService.updateStatsInFirestore(for: updatedRecommendation, change: .increment)
-
-                    if let previous = previousVote, previous != vote {
-                        // rollback previous vote
-                        var previousRec = recommendation
-                        previousRec.vote = previous
-                        RecommendationStatsService.updateStatsInFirestore(for: previousRec, change: .decrement)
-                    }
-                }
-            }
-        } else {
-            // unvote
-            ref.updateData(["vote": FieldValue.delete()]) { error in
-                if error == nil, let previous = previousVote {
-                    var previousRec = recommendation
-                    previousRec.vote = previous
-                    RecommendationStatsService.updateStatsInFirestore(for: previousRec, change: .decrement)
-                }
-            }
-        }
+        viewModel.toggleVote(newVote)
     }
 
 
@@ -199,18 +170,8 @@ struct RecommendationBaseDetailView: View {
     }
 
     private func saveVoteNote() {
-        guard let id = recommendation.id else { return }
         isNoteFocused = false
-
-        let ref = Firestore.firestore().collection("recommendations").document(id)
-        ref.updateData(["voteNote": voteNoteText]) { error in
-            if error == nil {
-                withAnimation {
-                    originalNoteText = voteNoteText
-                }
-            } else {
-                print("Failed to save note: \(error!)")
-            }
-        }
+        viewModel.saveVoteNote(voteNoteText)
+        withAnimation { originalNoteText = voteNoteText }
     }
 }

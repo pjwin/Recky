@@ -1,23 +1,22 @@
-import FirebaseAuth
-import FirebaseFirestore
 import SwiftUI
 
 struct RecommendationDetailView: View {
-    var recommendation: Recommendation
-    @State private var voteNoteText: String = ""
+    @StateObject private var viewModel: RecommendationDetailViewModel
     @State private var selectedPrefill: Recommendation? = nil
+
+    init(recommendation: Recommendation) {
+        _viewModel = StateObject(wrappedValue: RecommendationDetailViewModel(recommendation: recommendation))
+    }
 
     var body: some View {
         VStack(spacing: 20) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    let isRecipient = recommendation.toUID == Auth.auth().currentUser?.uid
-
                     RecommendationBaseDetailView(
-                        recommendation: recommendation,
+                        viewModel: viewModel,
                         titlePrefix: "From @",
-                        editableVote: isRecipient,
-                        editableNote: isRecipient
+                        editableVote: viewModel.isRecipient,
+                        editableNote: viewModel.isRecipient
                     )
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -25,7 +24,7 @@ struct RecommendationDetailView: View {
             }
 
             Button(action: {
-                selectedPrefill = recommendation
+                selectedPrefill = viewModel.recommendation
             }) {
                 HStack {
                     Spacer()
@@ -41,38 +40,13 @@ struct RecommendationDetailView: View {
             .padding(.bottom, 12)
         }
         .navigationTitle(
-            recommendation.fromUsername.map { "From @\($0)" } ?? "Recommendation"
+            viewModel.recommendation.fromUsername.map { "From @\($0)" } ?? "Recommendation"
         )
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(item: $selectedPrefill) { rec in
             SendRecommendationView(prefilledRecommendation: rec)
         }
-        .onAppear {
-            if let note = recommendation.voteNote {
-                voteNoteText = note
-            }
-            if recommendation.toUID == Auth.auth().currentUser?.uid,
-               !(recommendation.hasBeenViewedByRecipient ?? false),
-               let id = recommendation.id {
-                markAsViewed(id)
-            }
-        }
-    }
-
-
-    func markAsViewed(_ recommendationID: String) {
-        let ref = Firestore.firestore().collection("recommendations").document(recommendationID)
-        ref.updateData(["hasBeenViewedByRecipient": true])
-    }
-
-    private func saveVoteNote() {
-        guard let id = recommendation.id else { return }
-        let ref = Firestore.firestore().collection("recommendations").document(id)
-        ref.updateData(["voteNote": voteNoteText]) { error in
-            if let error = error {
-                print("Failed to save note: \(error)")
-            }
-        }
+        .onAppear { viewModel.markViewedIfNeeded() }
     }
 }
         
