@@ -1,5 +1,4 @@
 import FirebaseAuth
-import FirebaseFirestore
 import Foundation
 
 @MainActor
@@ -27,36 +26,9 @@ class RecommendationListViewModel: ObservableObject {
         guard let uid = myUID else { return }
         loading = true
 
-        let db = Firestore.firestore()
-
         do {
-            // Fetch sent and received recommendations in parallel
-            async let sentSnapshot = db.collection("recommendations")
-                .whereField("fromUID", isEqualTo: uid)
-                .order(by: "timestamp", descending: true)
-                .getDocuments()
-
-            async let receivedSnapshot = db.collection("recommendations")
-                .whereField("toUID", isEqualTo: uid)
-                .order(by: "timestamp", descending: true)
-                .getDocuments()
-
-            let (sentDocs, receivedDocs) = try await (sentSnapshot, receivedSnapshot)
-            let combinedDocs = sentDocs.documents + receivedDocs.documents
-
-            // Convert documents to Recommendation objects
-            let recs: [Recommendation] = combinedDocs.compactMap { doc in
-                do {
-                    var rec = try doc.data(as: Recommendation.self)
-                    rec.id = doc.documentID
-                    rec.hasBeenViewedByRecipient = doc.get("hasBeenViewedByRecipient") as? Bool ?? false
-                    return rec
-                } catch {
-                    print("Failed to parse recommendation: \(error)")
-                    return nil
-                }
-            }
-
+            let recs = try await RecommendationRepository.shared
+                .fetchRecommendations(for: uid)
             self.allRecommendations = recs
             applySearch()
         } catch {
@@ -112,15 +84,13 @@ class RecommendationListViewModel: ObservableObject {
         guard let uid = Auth.auth().currentUser?.uid,
               let id = rec.id else { return }
 
-        Firestore.firestore().collection("recommendations").document(id)
-            .updateData([
-                "archivedBy": FieldValue.arrayUnion([uid])
-            ]) { error in
-                if let error = error {
-                    print("Failed to archive recommendation: \(error)")
-                } else {
-                    Task { await self.fetchAllRecommendationsAsync() }
-                }
+        Task {
+            do {
+                try await RecommendationRepository.shared.archive(id: id, by: uid)
+                await fetchAllRecommendationsAsync()
+            } catch {
+                print("Failed to archive recommendation: \(error)")
             }
+        }
     }
 }
