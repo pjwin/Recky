@@ -1,0 +1,58 @@
+[
+  {
+    "id": "rec_001",
+    "fromUID": "user_123",
+    "toUID": "user_456",
+    "title": "The Matrix",
+    "type": "movie",
+    "notes": "A sci-fi classic, must watch!",
+    "timestamp": "2024-08-16T12:34:56Z",
+    "vote": true,
+    "voteNote": "Loved it",
+    "fromUsername": "Alice",
+    "toUsername": "Brian",
+    "hasBeenViewedByRecipient": true
+  },
+  {
+    "id": "rec_002",
+    "fromUID": "user_789",
+    "toUID": "user_456",
+    "title": "Breaking Bad",
+    "type": "tv",
+    "notes": "One of the best shows ever made.",
+    "timestamp": "2024-08-15T09:00:00Z",
+    "vote": false,
+    "voteNote": "Too dark for me",
+    "fromUsername": "Charlie",
+    "toUsername": "Brian",
+    "hasBeenViewedByRecipient": false
+  },
+  {
+    "id": "rec_003",
+    "fromUID": "user_123",
+    "toUID": "user_999",
+    "title": "The Beatles",
+    "type": "band",
+    "notes": "Start with Abbey Road.",
+    "timestamp": "2024-08-14T20:15:00Z",
+    "vote": null,
+    "voteNote": null,
+    "fromUsername": "Alice",
+    "toUsername": "Diana",
+    "hasBeenViewedByRecipient": false
+  },
+  {
+    "id": "rec_004",
+    "fromUID": "user_222",
+    "toUID": "user_333",
+    "title": "Sapiens: A Brief History of Humankind",
+    "type": "book",
+    "notes": "Fascinating look at human history.",
+    "timestamp": "2024-08-10T14:45:00Z",
+    "vote": true,
+    "voteNote": null,
+    "fromUsername": "Eve",
+    "toUsername": "Frank",
+    "hasBeenViewedByRecipient": true
+  }
+]

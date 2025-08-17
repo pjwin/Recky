@@ -27,26 +27,37 @@ class RecommendationListViewModel: ObservableObject {
         guard let uid = myUID else { return }
         loading = true
 
-        var results = [Recommendation]()
+        let db = Firestore.firestore()
 
         do {
-            let snapshot = try await Firestore.firestore()
-                .collection("recommendations")
+            // Fetch sent and received recommendations in parallel
+            async let sentSnapshot = db.collection("recommendations")
+                .whereField("fromUID", isEqualTo: uid)
                 .order(by: "timestamp", descending: true)
                 .getDocuments()
 
-            for doc in snapshot.documents {
+            async let receivedSnapshot = db.collection("recommendations")
+                .whereField("toUID", isEqualTo: uid)
+                .order(by: "timestamp", descending: true)
+                .getDocuments()
+
+            let (sentDocs, receivedDocs) = try await (sentSnapshot, receivedSnapshot)
+            let combinedDocs = sentDocs.documents + receivedDocs.documents
+
+            // Convert documents to Recommendation objects
+            let recs: [Recommendation] = combinedDocs.compactMap { doc in
                 do {
                     var rec = try doc.data(as: Recommendation.self)
                     rec.id = doc.documentID
                     rec.hasBeenViewedByRecipient = doc.get("hasBeenViewedByRecipient") as? Bool ?? false
-                    results.append(rec)
+                    return rec
                 } catch {
                     print("Failed to parse recommendation: \(error)")
+                    return nil
                 }
             }
 
-            self.allRecommendations = results
+            self.allRecommendations = recs
             applySearch()
         } catch {
             print("Failed to fetch recommendations: \(error)")
@@ -54,6 +65,7 @@ class RecommendationListViewModel: ObservableObject {
 
         loading = false
     }
+
 
     func applySearch() {
         guard let uid = myUID else { return }
@@ -93,5 +105,22 @@ class RecommendationListViewModel: ObservableObject {
         selectedUser = nil
         titleQuery = ""
         applySearch()
+    }
+    
+    @MainActor
+    func archive(rec: Recommendation) {
+        guard let uid = Auth.auth().currentUser?.uid,
+              let id = rec.id else { return }
+
+        Firestore.firestore().collection("recommendations").document(id)
+            .updateData([
+                "archivedBy": FieldValue.arrayUnion([uid])
+            ]) { error in
+                if let error = error {
+                    print("Failed to archive recommendation: \(error)")
+                } else {
+                    Task { await self.fetchAllRecommendationsAsync() }
+                }
+            }
     }
 }

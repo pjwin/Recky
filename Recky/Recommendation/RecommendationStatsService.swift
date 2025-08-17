@@ -141,4 +141,30 @@ class RecommendationStatsService {
         }
     }
     
+    enum StatChangeType {
+        case increment
+        case decrement
+    }
+    
+    static func updateStatsInFirestore(for rec: Recommendation, change: StatChangeType) {
+        guard let vote = rec.vote,
+              let _ = rec.id else { return }
+
+        let fromUID = rec.fromUID
+        let toUID = rec.toUID
+
+        let db = Firestore.firestore()
+
+        let changeValue = (change == .increment) ? Int64(1) : Int64(-1)
+        let fromField = vote ? "sentThumbsUp" : "sentThumbsDown"
+        let toField = vote ? "receivedThumbsUp" : "receivedThumbsDown"
+
+        db.collection("users").document(fromUID).setData([
+            "stats.\(fromField)": FieldValue.increment(changeValue)
+        ], merge: true)
+
+        db.collection("users").document(toUID).setData([
+            "stats.\(toField)": FieldValue.increment(changeValue)
+        ], merge: true)
+    }
 }

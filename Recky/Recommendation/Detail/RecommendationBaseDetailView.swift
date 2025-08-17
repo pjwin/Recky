@@ -138,18 +138,39 @@ struct RecommendationBaseDetailView: View {
     private func toggleVote(_ newVote: Bool) {
         guard editableVote, let recID = recommendation.id else { return }
 
-        let ref = Firestore.firestore().collection("recommendations").document(
-            recID
-        )
+        let ref = Firestore.firestore().collection("recommendations").document(recID)
+        let previousVote = currentVote
         let nextVote: Bool? = (currentVote == newVote) ? nil : newVote
         currentVote = nextVote
 
         if let vote = nextVote {
-            ref.updateData(["vote": vote])
+            ref.updateData(["vote": vote]) { error in
+                if error == nil {
+                    var updatedRecommendation = recommendation
+                    updatedRecommendation.vote = vote
+                    RecommendationStatsService.updateStatsInFirestore(for: updatedRecommendation, change: .increment)
+
+                    if let previous = previousVote, previous != vote {
+                        // rollback previous vote
+                        var previousRec = recommendation
+                        previousRec.vote = previous
+                        RecommendationStatsService.updateStatsInFirestore(for: previousRec, change: .decrement)
+                    }
+                }
+            }
         } else {
-            ref.updateData(["vote": FieldValue.delete()])
+            // unvote
+            ref.updateData(["vote": FieldValue.delete()]) { error in
+                if error == nil, let previous = previousVote {
+                    var previousRec = recommendation
+                    previousRec.vote = previous
+                    RecommendationStatsService.updateStatsInFirestore(for: previousRec, change: .decrement)
+                }
+            }
         }
     }
+
+
 
     private func timestampFormatted(_ date: Date) -> String {
         let formatter = DateFormatter()

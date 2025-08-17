@@ -55,7 +55,10 @@ struct RecommendationListView: View {
                     } else {
                         RecommendationCardListView(
                             recommendations: viewModel.filteredRecommendations,
-                            maxCount: nil
+                            maxCount: nil,
+                            onArchive: { rec in
+                                viewModel.archive(rec: rec)
+                            }
                         )
                         .padding(.horizontal)
                     }

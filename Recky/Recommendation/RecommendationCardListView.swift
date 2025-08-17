@@ -4,6 +4,7 @@ import FirebaseAuth
 struct RecommendationCardListView: View {
     let recommendations: [Recommendation]
     let maxCount: Int?
+    let onArchive: (Recommendation) -> Void
 
     var body: some View {
         VStack(spacing: 12) {
@@ -17,7 +18,16 @@ struct RecommendationCardListView: View {
                 ) {
                     RecommendationCardView(recommendation: rec, isSent: isSent)
                 }
+                .swipeActions(edge: .leading) {
+                    Button {
+                        onArchive(rec)
+                    } label: {
+                        Label("Archive", systemImage: "archivebox")
+                    }
+                    .tint(.gray)
+                }
             }
+
         }
     }
 }
