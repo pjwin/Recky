@@ -55,90 +55,78 @@ struct DetailedStats {
 }
 
 class RecommendationStatsService {
-    static func fetchStats(for uid: String, completion: @escaping (FriendStats) -> Void) {
+    static func fetchStats(for uid: String) async throws -> FriendStats {
         let db = Firestore.firestore()
+
+        async let sentDocs = getDocuments(
+            db.collection("recommendations").whereField("fromUID", isEqualTo: uid)
+        )
+        async let receivedDocs = getDocuments(
+            db.collection("recommendations").whereField("toUID", isEqualTo: uid)
+        )
+
+        let (sent, received) = try await (sentDocs, receivedDocs)
+
         var sentUp = 0, sentDown = 0
+        for doc in sent {
+            if let vote = doc["vote"] as? Bool {
+                vote ? (sentUp += 1) : (sentDown += 1)
+            }
+        }
+
         var receivedUp = 0, receivedDown = 0
-        let group = DispatchGroup()
-
-        group.enter()
-        db.collection("recommendations")
-            .whereField("fromUID", isEqualTo: uid)
-            .getDocuments { snapshot, _ in
-                for doc in snapshot?.documents ?? [] {
-                    if let vote = doc["vote"] as? Bool {
-                        vote ? (sentUp += 1) : (sentDown += 1)
-                    }
-                }
-                group.leave()
+        for doc in received {
+            if let vote = doc["vote"] as? Bool {
+                vote ? (receivedUp += 1) : (receivedDown += 1)
             }
-
-        group.enter()
-        db.collection("recommendations")
-            .whereField("toUID", isEqualTo: uid)
-            .getDocuments { snapshot, _ in
-                for doc in snapshot?.documents ?? [] {
-                    if let vote = doc["vote"] as? Bool {
-                        vote ? (receivedUp += 1) : (receivedDown += 1)
-                    }
-                }
-                group.leave()
-            }
-
-        group.notify(queue: .main) {
-            completion(FriendStats(
-                sentThumbsUp: sentUp,
-                sentThumbsDown: sentDown,
-                receivedThumbsUp: receivedUp,
-                receivedThumbsDown: receivedDown
-            ))
         }
+
+        return FriendStats(
+            sentThumbsUp: sentUp,
+            sentThumbsDown: sentDown,
+            receivedThumbsUp: receivedUp,
+            receivedThumbsDown: receivedDown
+        )
     }
-    
-    static func fetchDetailedStats(for uid: String, completion: @escaping (DetailedStats) -> Void) {
+
+    static func fetchDetailedStats(for uid: String) async throws -> DetailedStats {
         let db = Firestore.firestore()
+
+        async let sentDocs = getDocuments(
+            db.collection("recommendations").whereField("fromUID", isEqualTo: uid)
+        )
+        async let receivedDocs = getDocuments(
+            db.collection("recommendations").whereField("toUID", isEqualTo: uid)
+        )
+
+        let (sent, received) = try await (sentDocs, receivedDocs)
+
         var sentUp = 0, sentDown = 0, sentNoVote = 0
-        var receivedUp = 0, receivedDown = 0, receivedNoVote = 0
-        let group = DispatchGroup()
-
-        group.enter()
-        db.collection("recommendations")
-            .whereField("fromUID", isEqualTo: uid)
-            .getDocuments { snapshot, _ in
-                for doc in snapshot?.documents ?? [] {
-                    if let vote = doc["vote"] as? Bool {
-                        vote ? (sentUp += 1) : (sentDown += 1)
-                    } else {
-                        sentNoVote += 1
-                    }
-                }
-                group.leave()
+        for doc in sent {
+            if let vote = doc["vote"] as? Bool {
+                vote ? (sentUp += 1) : (sentDown += 1)
+            } else {
+                sentNoVote += 1
             }
-
-        group.enter()
-        db.collection("recommendations")
-            .whereField("toUID", isEqualTo: uid)
-            .getDocuments { snapshot, _ in
-                for doc in snapshot?.documents ?? [] {
-                    if let vote = doc["vote"] as? Bool {
-                        vote ? (receivedUp += 1) : (receivedDown += 1)
-                    } else {
-                        receivedNoVote += 1
-                    }
-                }
-                group.leave()
-            }
-
-        group.notify(queue: .main) {
-            completion(DetailedStats(
-                sentThumbsUp: sentUp,
-                sentThumbsDown: sentDown,
-                sentNoVote: sentNoVote,
-                receivedThumbsUp: receivedUp,
-                receivedThumbsDown: receivedDown,
-                receivedNoVote: receivedNoVote
-            ))
         }
+
+        var receivedUp = 0, receivedDown = 0, receivedNoVote = 0
+        for doc in received {
+            if let vote = doc["vote"] as? Bool {
+                vote ? (receivedUp += 1) : (receivedDown += 1)
+            } else {
+                receivedNoVote += 1
+            }
+        }
+
+        return DetailedStats(
+            sentThumbsUp: sentUp,
+            sentThumbsDown: sentDown,
+            sentNoVote: sentNoVote,
+            receivedThumbsUp: receivedUp,
+            receivedThumbsDown: receivedDown,
+            receivedNoVote: receivedNoVote
+        )
     }
     
     enum StatChangeType {
@@ -146,7 +134,7 @@ class RecommendationStatsService {
         case decrement
     }
     
-    static func updateStatsInFirestore(for rec: Recommendation, change: StatChangeType) {
+    static func updateStatsInFirestore(for rec: Recommendation, change: StatChangeType) async throws {
         guard let vote = rec.vote,
               let _ = rec.id else { return }
 
@@ -159,12 +147,40 @@ class RecommendationStatsService {
         let fromField = vote ? "sentThumbsUp" : "sentThumbsDown"
         let toField = vote ? "receivedThumbsUp" : "receivedThumbsDown"
 
-        db.collection("users").document(fromUID).setData([
-            "stats.\(fromField)": FieldValue.increment(changeValue)
-        ], merge: true)
+        async let fromUpdate = setData(
+            db.collection("users").document(fromUID),
+            data: ["stats.\(fromField)": FieldValue.increment(changeValue)]
+        )
+        async let toUpdate = setData(
+            db.collection("users").document(toUID),
+            data: ["stats.\(toField)": FieldValue.increment(changeValue)]
+        )
 
-        db.collection("users").document(toUID).setData([
-            "stats.\(toField)": FieldValue.increment(changeValue)
-        ], merge: true)
+        try await fromUpdate
+        try await toUpdate
+    }
+
+    private static func getDocuments(_ query: Query) async throws -> [QueryDocumentSnapshot] {
+        try await withCheckedThrowingContinuation { continuation in
+            query.getDocuments { snapshot, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: snapshot?.documents ?? [])
+                }
+            }
+        }
+    }
+
+    private static func setData(_ ref: DocumentReference, data: [String: Any]) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            ref.setData(data, merge: true) { error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
     }
 }

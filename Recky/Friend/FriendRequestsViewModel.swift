@@ -8,8 +8,12 @@ class FriendRequestsViewModel: ObservableObject {
 
     func loadRequests() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        service.fetchFriendRequests(for: uid) { [weak self] reqs in
-            self?.requests = reqs
+        Task { [weak self] in
+            do {
+                self?.requests = try await service.fetchFriendRequests(for: uid)
+            } catch {
+                self?.requests = []
+            }
         }
     }
 

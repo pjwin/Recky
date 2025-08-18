@@ -138,8 +138,15 @@ struct ProfileView: View {
 
     func fetchMyStats() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        RecommendationStatsService.fetchDetailedStats(for: uid) { stats in
-            myStats = stats
+        Task {
+            do {
+                let stats = try await RecommendationStatsService.fetchDetailedStats(for: uid)
+                await MainActor.run {
+                    myStats = stats
+                }
+            } catch {
+                await MainActor.run { myStats = nil }
+            }
         }
     }
 }
