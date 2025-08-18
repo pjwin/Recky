@@ -9,8 +9,13 @@ class FriendSearchViewModel: ObservableObject {
 
     func sendFriendRequestByEmail() {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
-        service.sendFriendRequestByEmail(searchEmail, from: myUID) { [weak self] msg in
-            self?.message = msg
+        Task { [weak self] in
+            do {
+                let msg = try await service.sendFriendRequestByEmail(searchEmail, from: myUID)
+                await MainActor.run { self?.message = msg }
+            } catch {
+                await MainActor.run { self?.message = "Failed to send request." }
+            }
         }
     }
 }

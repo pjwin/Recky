@@ -62,80 +62,147 @@ class FriendService {
         return requests
     }
 
-    func acceptRequest(from otherUID: String, otherUsername: String, currentUID: String, completion: @escaping () -> Void) {
+    func fetchFriends(for uid: String) async throws -> [Friend] {
+        return try await withCheckedThrowingContinuation { continuation in
+            db.collection("users").document(uid).collection("friends").getDocuments { snapshot, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                let docs = snapshot?.documents ?? []
+                let friends = docs.map { doc in
+                    Friend(id: doc.documentID, username: doc.get("username") as? String ?? "Unknown")
+                }
+                continuation.resume(returning: friends)
+            }
+        }
+    }
+
+    func sendFriendRequestByEmail(_ email: String, from currentUID: String) async throws -> String {
+        let emailLower = email.lowercased()
+        let snapshot = try await withCheckedThrowingContinuation { continuation in
+            db.collection("users")
+                .whereField("emailLowercase", isEqualTo: emailLower)
+                .getDocuments { snapshot, error in
+                    if let error = error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume(returning: snapshot)
+                    }
+                }
+        }
+
+        guard let doc = snapshot.documents.first else {
+            return "If the email is registered, your request has been sent."
+        }
+
+        let targetUID = doc.documentID
+        if targetUID == currentUID {
+            return "You can't send a friend request to yourself."
+        }
+
+        let myRef = db.collection("users").document(currentUID)
+        let targetRef = db.collection("users").document(targetUID)
+
+        let mySnap = try await getDocument(myRef)
+        let myUsername = mySnap.get("username") as? String ?? "Unknown"
+
+        try await updateDocument(myRef, data: [
+            "sentRequests": FieldValue.arrayUnion([targetUID])
+        ])
+        try await updateDocument(targetRef, data: [
+            "friendRequests": FieldValue.arrayUnion([["uid": currentUID, "username": myUsername]])
+        ])
+
+        return "That user will receive your friend request if they are registered."
+    }
+
+    func acceptRequest(from otherUID: String, otherUsername: String, currentUID: String) async throws {
         let myRef = db.collection("users").document(currentUID)
         let otherRef = db.collection("users").document(otherUID)
 
-        otherRef.getDocument { snapshot, _ in
-            guard let data = snapshot?.data(),
-                  let senderUsername = data["username"] as? String else {
-                completion()
-                return
-            }
+        let otherSnap = try await getDocument(otherRef)
+        let senderUsername = otherSnap.get("username") as? String ?? ""
 
-            myRef.getDocument { mySnap, _ in
-                let myUsername = mySnap?.get("username") as? String ?? "Unknown"
+        let mySnap = try await getDocument(myRef)
+        let myUsername = mySnap.get("username") as? String ?? "Unknown"
 
-                myRef.updateData([
-                    "friendRequests": FieldValue.arrayRemove([["uid": otherUID, "username": otherUsername]])
-                ])
-                otherRef.updateData([
-                    "sentRequests": FieldValue.arrayRemove([currentUID])
-                ])
-
-                myRef.collection("friends").document(otherUID).setData([
-                    "username": senderUsername,
-                    "addedAt": FieldValue.serverTimestamp()
-                ])
-                otherRef.collection("friends").document(currentUID).setData([
-                    "username": myUsername,
-                    "addedAt": FieldValue.serverTimestamp()
-                ])
-
-                completion()
-            }
-        }
-    }
-
-    func ignoreRequest(from otherUID: String, otherUsername: String, currentUID: String, completion: (() -> Void)? = nil) {
-        db.collection("users").document(currentUID).updateData([
+        try await updateDocument(myRef, data: [
             "friendRequests": FieldValue.arrayRemove([["uid": otherUID, "username": otherUsername]])
-        ]) { _ in
-            completion?()
+        ])
+        try await updateDocument(otherRef, data: [
+            "sentRequests": FieldValue.arrayRemove([currentUID])
+        ])
+
+        try await setDocument(myRef.collection("friends").document(otherUID), data: [
+            "username": senderUsername,
+            "addedAt": FieldValue.serverTimestamp()
+        ])
+        try await setDocument(otherRef.collection("friends").document(currentUID), data: [
+            "username": myUsername,
+            "addedAt": FieldValue.serverTimestamp()
+        ])
+    }
+
+    func ignoreRequest(from otherUID: String, otherUsername: String, currentUID: String) async throws {
+        try await updateDocument(db.collection("users").document(currentUID), data: [
+            "friendRequests": FieldValue.arrayRemove([["uid": otherUID, "username": otherUsername]])
+        ])
+    }
+
+    func removeFriend(_ uid: String, currentUID: String) async throws {
+        let myRef = db.collection("users").document(currentUID).collection("friends").document(uid)
+        let otherRef = db.collection("users").document(uid).collection("friends").document(currentUID)
+
+        try await deleteDocument(myRef)
+        try await deleteDocument(otherRef)
+    }
+
+    private func getDocument(_ ref: DocumentReference) async throws -> DocumentSnapshot {
+        return try await withCheckedThrowingContinuation { continuation in
+            ref.getDocument { snapshot, error in
+                if let snapshot = snapshot {
+                    continuation.resume(returning: snapshot)
+                } else {
+                    continuation.resume(throwing: error ?? NSError(domain: "FriendService", code: -1))
+                }
+            }
         }
     }
 
-    func sendFriendRequestByEmail(_ email: String, from currentUID: String, completion: @escaping (String) -> Void) {
-        let emailLower = email.lowercased()
-        db.collection("users")
-            .whereField("emailLowercase", isEqualTo: emailLower)
-            .getDocuments { snapshot, _ in
-                guard let doc = snapshot?.documents.first else {
-                    completion("If the email is registered, your request has been sent.")
-                    return
-                }
-
-                let targetUID = doc.documentID
-                if targetUID == currentUID {
-                    completion("You can't send a friend request to yourself.")
-                    return
-                }
-
-                let myRef = self.db.collection("users").document(currentUID)
-                let targetRef = self.db.collection("users").document(targetUID)
-
-                myRef.getDocument { mySnap, _ in
-                    let myUsername = mySnap?.get("username") as? String ?? "Unknown"
-
-                    myRef.updateData([
-                        "sentRequests": FieldValue.arrayUnion([targetUID])
-                    ])
-                    targetRef.updateData([
-                        "friendRequests": FieldValue.arrayUnion([["uid": currentUID, "username": myUsername]])
-                    ])
-
-                    completion("That user will receive your friend request if they are registered.")
+    private func updateDocument(_ ref: DocumentReference, data: [String: Any]) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            ref.updateData(data) { error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ())
                 }
             }
+        }
+    }
+
+    private func setDocument(_ ref: DocumentReference, data: [String: Any]) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            ref.setData(data) { error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ())
+                }
+            }
+        }
+    }
+
+    private func deleteDocument(_ ref: DocumentReference) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            ref.delete { error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ())
+                }
+            }
+        }
     }
 }

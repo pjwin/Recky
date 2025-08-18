@@ -1,5 +1,4 @@
 import FirebaseAuth
-import FirebaseFirestore
 import SwiftUI
 
 struct FriendsPageView: View {
@@ -10,6 +9,7 @@ struct FriendsPageView: View {
     @State private var isEditing = false
     @State private var refreshTrigger = false
     @State private var friendStatsByUID: [String: FriendStats] = [:]
+    private let service = FriendService.shared
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -28,6 +28,7 @@ struct FriendsPageView: View {
         }
         .onChange(of: refreshTrigger) {
             loadFriends()
+            loadRequests()
         }
         .sheet(isPresented: $showRequests) {
             NavigationView {
@@ -141,27 +142,23 @@ struct FriendsPageView: View {
 
     private func loadRequests() {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
-        db.collection("users").document(myUID).addSnapshotListener { snapshot, _ in
-            let requests = snapshot?.data()?["friendRequests"] as? [[String: Any]] ?? []
-            requestCount = requests.count
+        Task {
+            do {
+                let requests = try await service.fetchFriendRequests(for: myUID)
+                await MainActor.run { requestCount = requests.count }
+            } catch {
+                await MainActor.run { requestCount = 0 }
+            }
         }
     }
 
     private func loadFriends() {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
+        Task {
+            do {
+                let loadedFriends = try await service.fetchFriends(for: myUID)
+                await MainActor.run { self.friends = loadedFriends }
 
-        db.collection("users").document(myUID).collection("friends").getDocuments { snapshot, _ in
-            guard let docs = snapshot?.documents else { return }
-
-            let loadedFriends = docs.map { doc in
-                Friend(id: doc.documentID, username: doc.get("username") as? String ?? "Unknown")
-            }
-
-            self.friends = loadedFriends
-
-            Task {
                 await withTaskGroup(of: (String, FriendStats)?.self) { group in
                     for friend in loadedFriends {
                         group.addTask {
@@ -184,22 +181,23 @@ struct FriendsPageView: View {
                         friendStatsByUID = results
                     }
                 }
+            } catch {
+                await MainActor.run { self.friends = [] }
             }
         }
     }
 
-
     private func removeFriend(_ friend: Friend) {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
-        let uid = friend.id
-
-        let myRef = db.collection("users").document(myUID)
-        let otherRef = db.collection("users").document(uid)
-
-        myRef.collection("friends").document(uid).delete()
-        otherRef.collection("friends").document(myUID).delete()
-
-        friends.removeAll { $0.id == uid }
+        Task {
+            do {
+                try await service.removeFriend(friend.id, currentUID: myUID)
+                await MainActor.run {
+                    friends.removeAll { $0.id == friend.id }
+                }
+            } catch {
+                // Ignore error
+            }
+        }
     }
 }
