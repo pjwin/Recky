@@ -1,16 +1,23 @@
 import SwiftUI
 
 struct SentRecommendationDetailView: View {
-    var recommendation: Recommendation
+    @StateObject private var viewModel: RecommendationDetailViewModel
+
+    init(recommendation: Recommendation) {
+        _viewModel = StateObject(wrappedValue: RecommendationDetailViewModel(recommendation: recommendation))
+    }
 
     var body: some View {
         RecommendationBaseDetailView(
-            recommendation: recommendation,
+            viewModel: viewModel,
             titlePrefix: "To @",
             editableVote: false,
             editableNote: false
         )
-        .navigationTitle(recommendation.toUsername.map { "To @\($0)" } ?? "Sent Recommendation")
+        .navigationTitle(
+            viewModel.recommendation.toUsername.map { "To @\($0)" } ?? "Sent Recommendation"
+        )
         .navigationBarTitleDisplayMode(.inline)
+        .task { await viewModel.markViewedIfNeeded() }
     }
 }

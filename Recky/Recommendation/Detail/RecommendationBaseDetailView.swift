@@ -5,7 +5,6 @@ struct RecommendationBaseDetailView: View {
     var titlePrefix: String
     var editableVote: Bool
     var editableNote: Bool
-    @State private var currentVote: Bool?
     @State private var voteNoteText: String = ""
     @State private var originalNoteText: String = ""
     @FocusState private var isNoteFocused: Bool
@@ -33,20 +32,20 @@ struct RecommendationBaseDetailView: View {
                 HStack(spacing: 20) {
                     Button(action: { toggleVote(true) }) {
                         Image(
-                            systemName: currentVote == true
+                            systemName: viewModel.recommendation.vote == true
                                 ? "hand.thumbsup.fill" : "hand.thumbsup"
                         )
                         .font(.title2)
-                        .foregroundColor(currentVote == true ? .blue : .gray)
+                        .foregroundColor(viewModel.recommendation.vote == true ? .blue : .gray)
                     }
 
                     Button(action: { toggleVote(false) }) {
                         Image(
-                            systemName: currentVote == false
+                            systemName: viewModel.recommendation.vote == false
                                 ? "hand.thumbsdown.fill" : "hand.thumbsdown"
                         )
                         .font(.title2)
-                        .foregroundColor(currentVote == false ? .red : .gray)
+                        .foregroundColor(viewModel.recommendation.vote == false ? .red : .gray)
                     }
                 }
                 .padding(.top, 8)
@@ -128,7 +127,6 @@ struct RecommendationBaseDetailView: View {
         }
         .padding()
         .onAppear {
-            currentVote = viewModel.recommendation.vote
             voteNoteText = viewModel.recommendation.voteNote ?? ""
             originalNoteText = voteNoteText
         }
@@ -136,9 +134,7 @@ struct RecommendationBaseDetailView: View {
 
     private func toggleVote(_ newVote: Bool) {
         guard editableVote else { return }
-        let nextVote: Bool? = (currentVote == newVote) ? nil : newVote
-        currentVote = nextVote
-        viewModel.toggleVote(newVote)
+        Task { await viewModel.toggleVote(newVote) }
     }
 
 
@@ -171,7 +167,9 @@ struct RecommendationBaseDetailView: View {
 
     private func saveVoteNote() {
         isNoteFocused = false
-        viewModel.saveVoteNote(voteNoteText)
-        withAnimation { originalNoteText = voteNoteText }
+        Task {
+            await viewModel.saveVoteNote(voteNoteText)
+            withAnimation { originalNoteText = voteNoteText }
+        }
     }
 }

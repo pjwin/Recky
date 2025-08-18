@@ -15,54 +15,52 @@ class RecommendationDetailViewModel: ObservableObject {
         return recommendation.toUID == uid
     }
 
-    func markViewedIfNeeded() {
+    func markViewedIfNeeded() async {
         guard isRecipient,
               !(recommendation.hasBeenViewedByRecipient ?? false),
               let id = recommendation.id else { return }
-        Task {
-            try? await repository.markViewed(id: id)
+        do {
+            try await repository.markViewed(id: id)
             recommendation.hasBeenViewedByRecipient = true
+        } catch {
+            // Intentionally ignore errors for marking viewed
         }
     }
 
-    func toggleVote(_ newVote: Bool) {
+    func toggleVote(_ newVote: Bool) async {
         guard isRecipient, let id = recommendation.id else { return }
         let previousVote = recommendation.vote
         let nextVote: Bool? = (recommendation.vote == newVote) ? nil : newVote
         recommendation.vote = nextVote
-        Task {
-            do {
-                try await repository.vote(recommendationID: id, vote: nextVote)
-                if let vote = nextVote {
-                    var updated = recommendation
-                    updated.vote = vote
-                    try await RecommendationStatsService.updateStatsInFirestore(for: updated, change: .increment)
-                    if let previous = previousVote, previous != vote {
-                        var previousRec = recommendation
-                        previousRec.vote = previous
-                        try await RecommendationStatsService.updateStatsInFirestore(for: previousRec, change: .decrement)
-                    }
-                } else if let previous = previousVote {
+        do {
+            try await repository.vote(recommendationID: id, vote: nextVote)
+            if let vote = nextVote {
+                var updated = recommendation
+                updated.vote = vote
+                try await RecommendationStatsService.updateStatsInFirestore(for: updated, change: .increment)
+                if let previous = previousVote, previous != vote {
                     var previousRec = recommendation
                     previousRec.vote = previous
                     try await RecommendationStatsService.updateStatsInFirestore(for: previousRec, change: .decrement)
                 }
-            } catch {
-                print("Failed to update vote: \(error)")
-                recommendation.vote = previousVote
+            } else if let previous = previousVote {
+                var previousRec = recommendation
+                previousRec.vote = previous
+                try await RecommendationStatsService.updateStatsInFirestore(for: previousRec, change: .decrement)
             }
+        } catch {
+            print("Failed to update vote: \(error)")
+            recommendation.vote = previousVote
         }
     }
 
-    func saveVoteNote(_ note: String) {
+    func saveVoteNote(_ note: String) async {
         guard isRecipient, let id = recommendation.id else { return }
-        Task {
-            do {
-                try await repository.saveVoteNote(id: id, note: note)
-                recommendation.voteNote = note
-            } catch {
-                print("Failed to save note: \(error)")
-            }
+        do {
+            try await repository.saveVoteNote(id: id, note: note)
+            recommendation.voteNote = note
+        } catch {
+            print("Failed to save note: \(error)")
         }
     }
 }

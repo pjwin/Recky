@@ -46,7 +46,7 @@ struct RecommendationDetailView: View {
         .navigationDestination(item: $selectedPrefill) { rec in
             SendRecommendationView(prefilledRecommendation: rec)
         }
-        .onAppear { viewModel.markViewedIfNeeded() }
+        .task { await viewModel.markViewedIfNeeded() }
     }
 }
         
