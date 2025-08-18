@@ -15,8 +15,10 @@ struct RecommendationBaseDetailView: View {
                 .font(.caption)
                 .foregroundColor(.gray)
 
-            Text(EmojiUtils.forType(viewModel.recommendation.type))
-                .font(.largeTitle)
+            if !viewModel.recommendation.tags.isEmpty {
+                Text(viewModel.recommendation.tags.joined(separator: ", "))
+                    .font(.headline)
+            }
 
             Text(viewModel.recommendation.title)
                 .font(.largeTitle)

@@ -38,7 +38,7 @@ class RecommendationRepository {
             "toUID": rec.toUID,
             "toUsername": rec.toUsername ?? "",
             "title": rec.title,
-            "type": rec.type,
+            "tags": rec.tags,
             "timestamp": FieldValue.serverTimestamp(),
             "vote": NSNull()
         ]

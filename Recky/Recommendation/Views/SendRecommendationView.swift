@@ -6,7 +6,7 @@ struct SendRecommendationView: View {
     var prefilledRecommendation: Recommendation? = nil
 
     @State private var title = ""
-    @State private var type = RecommendationType.movie.rawValue
+    @State private var tagsText = ""
     @State private var notes = ""
 
     @State private var usernameQuery = ""
@@ -25,12 +25,10 @@ struct SendRecommendationView: View {
                         .background(Color(.secondarySystemBackground))
                         .cornerRadius(8)
 
-                    Picker("Type", selection: $type) {
-                        ForEach(RecommendationType.allCases, id: \.rawValue) { type in
-                            Text(type.displayName).tag(type.rawValue)
-                        }
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
+                    TextField("Tags (comma-separated)", text: $tagsText)
+                        .padding()
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(8)
 
                     TextField("Optional notes...", text: $notes)
                         .padding()
@@ -71,7 +69,7 @@ struct SendRecommendationView: View {
                 if let rec = prefilledRecommendation {
                     if title.isEmpty { title = rec.title }
                     if notes.isEmpty, let recNotes = rec.notes { notes = recNotes }
-                    if rec.type.isEmpty == false { type = rec.type }
+                    if tagsText.isEmpty { tagsText = rec.tags.joined(separator: ", ") }
                 }
             }
         }
@@ -148,15 +146,20 @@ struct SendRecommendationView: View {
             do {
                 try await withThrowingTaskGroup(of: Void.self) { group in
                     for friend in selectedFriends {
+                        let tags = tagsText
+                            .split(separator: ",")
+                            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                            .filter { !$0.isEmpty }
                         let rec = Recommendation(
                             id: nil,
                             fromUID: fromUID,
                             toUID: friend.uid,
                             title: title,
-                            type: type,
+                            tags: tags,
                             notes: notes.isEmpty ? nil : notes,
                             timestamp: timestamp,
                             vote: nil,
+                            voteNote: nil,
                             fromUsername: CurrentUserSession.shared.username,
                             toUsername: friend.username
                         )

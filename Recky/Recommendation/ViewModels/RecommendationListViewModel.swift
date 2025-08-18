@@ -7,7 +7,7 @@ class RecommendationListViewModel: ObservableObject {
     @Published var filteredRecommendations: [Recommendation] = []
     @Published var showReceived = true
     @Published var showSent = true
-    @Published var selectedType: String? = nil
+    @Published var selectedTag: String? = nil
     @Published var selectedUser: String? = nil
     @Published var loading = false
     @Published var titleQuery: String = ""
@@ -48,9 +48,11 @@ class RecommendationListViewModel: ObservableObject {
 
             let directionAllowed =
                 (isSent && showSent) || (isReceived && showReceived)
-            let matchesType =
-                selectedType == nil
-                || rec.type.lowercased() == selectedType?.lowercased()
+            let matchesTag =
+                selectedTag == nil
+                || rec.tags.contains {
+                    $0.lowercased() == selectedTag?.lowercased()
+                }
             let matchesUser =
                 selectedUser == nil
                 || (isSent
@@ -65,7 +67,7 @@ class RecommendationListViewModel: ObservableObject {
                 titleQuery.isEmpty
                 || rec.title.lowercased().contains(titleQuery.lowercased())
 
-            return directionAllowed && matchesType && matchesUser
+            return directionAllowed && matchesTag && matchesUser
                 && matchesTitle
         }
     }
@@ -73,7 +75,7 @@ class RecommendationListViewModel: ObservableObject {
     func resetSearch() {
         showReceived = true
         showSent = true
-        selectedType = nil
+        selectedTag = nil
         selectedUser = nil
         titleQuery = ""
         applySearch()
