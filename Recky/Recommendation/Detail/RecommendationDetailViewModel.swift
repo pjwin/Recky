@@ -34,20 +34,11 @@ class RecommendationDetailViewModel: ObservableObject {
         recommendation.vote = nextVote
         do {
             try await repository.vote(recommendationID: id, vote: nextVote)
-            if let vote = nextVote {
-                var updated = recommendation
-                updated.vote = vote
-                try await RecommendationStatsService.updateStatsInFirestore(for: updated, change: .increment)
-                if let previous = previousVote, previous != vote {
-                    var previousRec = recommendation
-                    previousRec.vote = previous
-                    try await RecommendationStatsService.updateStatsInFirestore(for: previousRec, change: .decrement)
-                }
-            } else if let previous = previousVote {
-                var previousRec = recommendation
-                previousRec.vote = previous
-                try await RecommendationStatsService.updateStatsInFirestore(for: previousRec, change: .decrement)
-            }
+            try await RecommendationStatsService.updateStatsInFirestore(
+                for: recommendation,
+                previousVote: previousVote,
+                newVote: nextVote
+            )
         } catch {
             print("Failed to update vote: \(error)")
             recommendation.vote = previousVote

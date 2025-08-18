@@ -46,6 +46,11 @@ class RecommendationRepository {
             data["notes"] = notes
         }
         _ = try await db.collection("recommendations").addDocument(data: data)
+        try await RecommendationStatsService.updateStatsInFirestore(
+            for: rec,
+            previousVote: nil,
+            newVote: nil
+        )
     }
 
     func vote(recommendationID: String, vote: Bool?) async throws {

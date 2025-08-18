@@ -31,5 +31,10 @@ class RecommendationService {
                 }
             }
         }
+        try await RecommendationStatsService.updateStatsInFirestore(
+            for: rec,
+            previousVote: nil,
+            newVote: nil
+        )
     }
 }
