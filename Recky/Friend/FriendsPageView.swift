@@ -161,9 +161,28 @@ struct FriendsPageView: View {
 
             self.friends = loadedFriends
 
-            for friend in loadedFriends {
-                RecommendationStatsService.fetchStats(for: friend.id) { stats in
-                    friendStatsByUID[friend.id] = stats
+            Task {
+                await withTaskGroup(of: (String, FriendStats)?.self) { group in
+                    for friend in loadedFriends {
+                        group.addTask {
+                            do {
+                                let stats = try await RecommendationStatsService.fetchStats(for: friend.id)
+                                return (friend.id, stats)
+                            } catch {
+                                return nil
+                            }
+                        }
+                    }
+
+                    var results: [String: FriendStats] = [:]
+                    for await result in group {
+                        if let (id, stats) = result {
+                            results[id] = stats
+                        }
+                    }
+                    await MainActor.run {
+                        friendStatsByUID = results
+                    }
                 }
             }
         }

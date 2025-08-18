@@ -129,9 +129,13 @@ struct SendRecommendationView: View {
 
     private func searchUsernames() {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
-
-        FriendService.shared.searchFriends(query: usernameQuery, currentUID: myUID) { results in
-            searchResults = results
+        Task {
+            do {
+                let results = try await FriendService.shared.searchFriends(query: usernameQuery, currentUID: myUID)
+                await MainActor.run { searchResults = results }
+            } catch {
+                await MainActor.run { searchResults = [] }
+            }
         }
     }
 
@@ -140,32 +144,42 @@ struct SendRecommendationView: View {
         isSending = true
 
         let timestamp = Date()
-        let group = DispatchGroup()
+        Task {
+            do {
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    for friend in selectedFriends {
+                        let rec = Recommendation(
+                            id: nil,
+                            fromUID: fromUID,
+                            toUID: friend.uid,
+                            title: title,
+                            type: type,
+                            notes: notes.isEmpty ? nil : notes,
+                            timestamp: timestamp,
+                            vote: nil,
+                            fromUsername: CurrentUserSession.shared.username,
+                            toUsername: friend.username
+                        )
 
-        for friend in selectedFriends {
-            let rec = Recommendation(
-                id: nil,
-                fromUID: fromUID,
-                toUID: friend.uid,
-                title: title,
-                type: type,
-                notes: notes.isEmpty ? nil : notes,
-                timestamp: timestamp,
-                vote: nil,
-                fromUsername: CurrentUserSession.shared.username, // or fetch from user model
-                toUsername: friend.username,
-            )
+                        group.addTask {
+                            try await RecommendationService.shared.send(rec)
+                        }
+                    }
+                    try await group.waitForAll()
+                }
 
-            group.enter()
-            RecommendationService.shared.send(rec) { _ in
-                group.leave()
-            }
-        }
-
-        group.notify(queue: .main) {
-            message = "Recommendations sent!"
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                dismiss()
+                await MainActor.run {
+                    message = "Recommendations sent!"
+                    isSending = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        dismiss()
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    message = "Failed to send recommendations"
+                    isSending = false
+                }
             }
         }
     }

@@ -6,7 +6,7 @@ class RecommendationService {
     private let db = Firestore.firestore()
     private init() {}
 
-    func send(_ rec: Recommendation, completion: @escaping (Result<Void, Error>) -> Void) {
+    func send(_ rec: Recommendation) async throws {
         var data: [String: Any] = [
             "fromUID": rec.fromUID,
             "fromUsername": rec.fromUsername ?? "",
@@ -22,11 +22,13 @@ class RecommendationService {
             data["notes"] = notes
         }
 
-        db.collection("recommendations").addDocument(data: data) { error in
-            if let error = error {
-                completion(.failure(error))
-            } else {
-                completion(.success(()))
+        try await withCheckedThrowingContinuation { continuation in
+            db.collection("recommendations").addDocument(data: data) { error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
             }
         }
     }

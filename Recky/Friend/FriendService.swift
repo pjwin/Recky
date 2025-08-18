@@ -5,58 +5,75 @@ class FriendService {
     private let db = Firestore.firestore()
     private init() {}
 
-    func searchFriends(query: String, currentUID: String, limit: Int = 5, completion: @escaping ([(uid: String, username: String)]) -> Void) {
+    func searchFriends(query: String, currentUID: String, limit: Int = 5) async throws -> [(uid: String, username: String)] {
         guard !query.isEmpty else {
-            completion([])
-            return
+            return []
         }
 
-        db.collection("users")
-            .document(currentUID)
-            .collection("friends")
-            .order(by: "username")
-            .start(at: [query])
-            .end(at: [query + "\u{f8ff}"])
-            .limit(to: limit)
-            .getDocuments { snapshot, error in
-                guard error == nil, let documents = snapshot?.documents else {
-                    print("Error searching friends: \(error?.localizedDescription ?? "unknown error")")
-                    completion([])
-                    return
-                }
+        return try await withCheckedThrowingContinuation { continuation in
+            db.collection("users")
+                .document(currentUID)
+                .collection("friends")
+                .order(by: "username")
+                .start(at: [query])
+                .end(at: [query + "\u{f8ff}"])
+                .limit(to: limit)
+                .getDocuments { snapshot, error in
+                    if let error = error {
+                        continuation.resume(throwing: error)
+                        return
+                    }
+                    let documents = snapshot?.documents ?? []
 
-                let results = documents.compactMap { doc -> (uid: String, username: String)? in
-                    let uid = doc.documentID
-                    let username = doc.get("username") as? String ?? ""
-                    return (uid, username)
+                    let results = documents.compactMap { doc -> (uid: String, username: String)? in
+                        let uid = doc.documentID
+                        let username = doc.get("username") as? String ?? ""
+                        return (uid, username)
+                    }
+                    continuation.resume(returning: results)
                 }
-
-                completion(results)
-            }
+        }
     }
 
-    func fetchFriendRequests(for uid: String, completion: @escaping ([(uid: String, username: String)]) -> Void) {
-        db.collection("users").document(uid).getDocument { doc, _ in
-            guard let data = doc?.data(),
-                  let ids = data["friendRequests"] as? [String] else {
-                completion([])
-                return
+    func fetchFriendRequests(for uid: String) async throws -> [(uid: String, username: String)] {
+        let doc = try await withCheckedThrowingContinuation { continuation in
+            db.collection("users").document(uid).getDocument { doc, error in
+                if let doc = doc {
+                    continuation.resume(returning: doc)
+                } else {
+                    continuation.resume(throwing: error ?? NSError(domain: "FriendService", code: -1))
+                }
+            }
+        }
+
+        guard let data = doc.data(), let ids = data["friendRequests"] as? [String] else {
+            return []
+        }
+
+        return try await withThrowingTaskGroup(of: (String, String)?.self, returning: [(uid: String, username: String)].self) { group in
+            for id in ids {
+                group.addTask {
+                    try await withCheckedThrowingContinuation { continuation in
+                        self.db.collection("users").document(id).getDocument { snap, error in
+                            if let username = snap?.get("username") as? String {
+                                continuation.resume(returning: (id, username))
+                            } else if let error = error {
+                                continuation.resume(throwing: error)
+                            } else {
+                                continuation.resume(returning: nil)
+                            }
+                        }
+                    }
+                }
             }
 
             var results: [(uid: String, username: String)] = []
-            let group = DispatchGroup()
-            for id in ids {
-                group.enter()
-                self.db.collection("users").document(id).getDocument { snap, _ in
-                    if let username = snap?.get("username") as? String {
-                        results.append((id, username))
-                    }
-                    group.leave()
+            for try await result in group {
+                if let r = result {
+                    results.append(r)
                 }
             }
-            group.notify(queue: .main) {
-                completion(results)
-            }
+            return results
         }
     }
 
