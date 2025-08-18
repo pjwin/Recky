@@ -131,7 +131,7 @@ struct ProfileView: View {
                 guard let doc = docSnapshot, let data = doc.data() else {
                     return
                 }
-                let requests = data["friendRequests"] as? [String] ?? []
+                let requests = data["friendRequests"] as? [[String: Any]] ?? []
                 pendingRequestCount = requests.count
             }
     }

@@ -17,17 +17,17 @@ class FriendRequestsViewModel: ObservableObject {
         }
     }
 
-    func acceptRequest(from uid: String, completion: @escaping () -> Void = {}) {
+    func acceptRequest(uid: String, username: String, completion: @escaping () -> Void = {}) {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
-        service.acceptRequest(from: uid, currentUID: myUID) { [weak self] in
+        service.acceptRequest(from: uid, otherUsername: username, currentUID: myUID) { [weak self] in
             self?.loadRequests()
             completion()
         }
     }
 
-    func ignoreRequest(from uid: String) {
+    func ignoreRequest(uid: String, username: String) {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
-        service.ignoreRequest(from: uid, currentUID: myUID) { [weak self] in
+        service.ignoreRequest(from: uid, otherUsername: username, currentUID: myUID) { [weak self] in
             self?.loadRequests()
         }
     }
