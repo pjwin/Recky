@@ -19,16 +19,26 @@ class FriendRequestsViewModel: ObservableObject {
 
     func acceptRequest(uid: String, username: String, completion: @escaping () -> Void = {}) {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
-        service.acceptRequest(from: uid, otherUsername: username, currentUID: myUID) { [weak self] in
-            self?.loadRequests()
-            completion()
+        Task { [weak self] in
+            do {
+                try await service.acceptRequest(from: uid, otherUsername: username, currentUID: myUID)
+                await MainActor.run { self?.loadRequests() }
+                completion()
+            } catch {
+                // Ignore error for now
+            }
         }
     }
 
     func ignoreRequest(uid: String, username: String) {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
-        service.ignoreRequest(from: uid, otherUsername: username, currentUID: myUID) { [weak self] in
-            self?.loadRequests()
+        Task { [weak self] in
+            do {
+                try await service.ignoreRequest(from: uid, otherUsername: username, currentUID: myUID)
+                await MainActor.run { self?.loadRequests() }
+            } catch {
+                // Ignore error for now
+            }
         }
     }
 }
