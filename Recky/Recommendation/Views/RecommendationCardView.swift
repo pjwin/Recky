@@ -8,7 +8,7 @@ struct RecommendationCardView: View {
     var body: some View {
         let currentUserUID = Auth.auth().currentUser?.uid
         let hasVoted = recommendation.vote != nil
-        let typeEmoji = EmojiUtils.forType(recommendation.type)
+        let tagsText = recommendation.tags.joined(separator: ", ")
         let voteIconName: String? = {
             switch recommendation.vote {
             case true: return "hand.thumbsup.fill"
@@ -32,7 +32,7 @@ struct RecommendationCardView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .top) {
-                    Text("\(typeEmoji) \(recommendation.title)")
+                    Text(recommendation.title)
                         .font(.body)
                         .lineLimit(1)
 
@@ -51,6 +51,12 @@ struct RecommendationCardView: View {
                             .cornerRadius(10)
                             .transition(.opacity)
                     }
+                }
+
+                if !tagsText.isEmpty {
+                    Text(tagsText)
+                        .font(.caption2)
+                        .foregroundColor(.gray)
                 }
 
                 HStack {

@@ -91,29 +91,17 @@ struct RecommendationListView: View {
                 )
                 .textFieldStyle(RoundedBorderTextFieldStyle())
 
-                Menu {
-                    Button(
-                        "All",
-                        action: {
-                            viewModel.selectedType = nil
+                TextField(
+                    "Filter by tag...",
+                    text: Binding(
+                        get: { viewModel.selectedTag ?? "" },
+                        set: {
+                            viewModel.selectedTag = $0.isEmpty ? nil : $0
                             viewModel.applySearch()
                         }
                     )
-                    ForEach(
-                        ["movie", "tv", "book", "album", "game"],
-                        id: \.self
-                    ) { type in
-                        Button(type.capitalized) {
-                            viewModel.selectedType = type
-                            viewModel.applySearch()
-                        }
-                    }
-                } label: {
-                    Label(
-                        viewModel.selectedType?.capitalized ?? "Type",
-                        systemImage: "line.3.horizontal.decrease.circle"
-                    )
-                }
+                )
+                .textFieldStyle(RoundedBorderTextFieldStyle())
             }
 
             TextField("Search by title...", text: $viewModel.titleQuery)
@@ -123,7 +111,7 @@ struct RecommendationListView: View {
                 }
 
             if viewModel.showReceived == false || viewModel.showSent == false
-                || viewModel.selectedType != nil
+                || viewModel.selectedTag != nil
                 || viewModel.selectedUser != nil
                 || !viewModel.titleQuery.isEmpty
             {
