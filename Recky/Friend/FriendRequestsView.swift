@@ -14,7 +14,7 @@ struct FriendRequestsView: View {
 
                     HStack(spacing: 24) {
                         Button("Accept") {
-                            viewModel.acceptRequest(from: request.uid) {
+                            viewModel.acceptRequest(uid: request.uid, username: request.username) {
                                 onFriendAccepted()
                             }
                         }
@@ -22,7 +22,7 @@ struct FriendRequestsView: View {
                         .tint(.blue)
 
                         Button("Ignore") {
-                            viewModel.ignoreRequest(from: request.uid)
+                            viewModel.ignoreRequest(uid: request.uid, username: request.username)
                         }
                         .buttonStyle(.bordered)
                         .tint(.red)

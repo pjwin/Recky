@@ -143,7 +143,7 @@ struct FriendsPageView: View {
         guard let myUID = Auth.auth().currentUser?.uid else { return }
         let db = Firestore.firestore()
         db.collection("users").document(myUID).addSnapshotListener { snapshot, _ in
-            let requests = snapshot?.data()?["friendRequests"] as? [String] ?? []
+            let requests = snapshot?.data()?["friendRequests"] as? [[String: Any]] ?? []
             requestCount = requests.count
         }
     }

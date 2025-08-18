@@ -46,44 +46,29 @@ class FriendService {
             }
         }
 
-        guard let data = doc.data(), let ids = data["friendRequests"] as? [String] else {
+        guard let data = doc.data(),
+              let rawRequests = data["friendRequests"] as? [[String: Any]] else {
             return []
         }
 
-        return try await withThrowingTaskGroup(of: (String, String)?.self, returning: [(uid: String, username: String)].self) { group in
-            for id in ids {
-                group.addTask {
-                    try await withCheckedThrowingContinuation { continuation in
-                        self.db.collection("users").document(id).getDocument { snap, error in
-                            if let username = snap?.get("username") as? String {
-                                continuation.resume(returning: (id, username))
-                            } else if let error = error {
-                                continuation.resume(throwing: error)
-                            } else {
-                                continuation.resume(returning: nil)
-                            }
-                        }
-                    }
-                }
+        let requests: [(uid: String, username: String)] = rawRequests.compactMap { map in
+            guard let uid = map["uid"] as? String,
+                  let username = map["username"] as? String else {
+                return nil
             }
-
-            var results: [(uid: String, username: String)] = []
-            for try await result in group {
-                if let r = result {
-                    results.append(r)
-                }
-            }
-            return results
+            return (uid, username)
         }
+
+        return requests
     }
 
-    func acceptRequest(from otherUID: String, currentUID: String, completion: @escaping () -> Void) {
+    func acceptRequest(from otherUID: String, otherUsername: String, currentUID: String, completion: @escaping () -> Void) {
         let myRef = db.collection("users").document(currentUID)
         let otherRef = db.collection("users").document(otherUID)
 
         otherRef.getDocument { snapshot, _ in
             guard let data = snapshot?.data(),
-                  let otherUsername = data["username"] as? String else {
+                  let senderUsername = data["username"] as? String else {
                 completion()
                 return
             }
@@ -92,14 +77,14 @@ class FriendService {
                 let myUsername = mySnap?.get("username") as? String ?? "Unknown"
 
                 myRef.updateData([
-                    "friendRequests": FieldValue.arrayRemove([otherUID])
+                    "friendRequests": FieldValue.arrayRemove([["uid": otherUID, "username": otherUsername]])
                 ])
                 otherRef.updateData([
                     "sentRequests": FieldValue.arrayRemove([currentUID])
                 ])
 
                 myRef.collection("friends").document(otherUID).setData([
-                    "username": otherUsername,
+                    "username": senderUsername,
                     "addedAt": FieldValue.serverTimestamp()
                 ])
                 otherRef.collection("friends").document(currentUID).setData([
@@ -112,9 +97,9 @@ class FriendService {
         }
     }
 
-    func ignoreRequest(from otherUID: String, currentUID: String, completion: (() -> Void)? = nil) {
+    func ignoreRequest(from otherUID: String, otherUsername: String, currentUID: String, completion: (() -> Void)? = nil) {
         db.collection("users").document(currentUID).updateData([
-            "friendRequests": FieldValue.arrayRemove([otherUID])
+            "friendRequests": FieldValue.arrayRemove([["uid": otherUID, "username": otherUsername]])
         ]) { _ in
             completion?()
         }
@@ -138,14 +123,19 @@ class FriendService {
 
                 let myRef = self.db.collection("users").document(currentUID)
                 let targetRef = self.db.collection("users").document(targetUID)
-                myRef.updateData([
-                    "sentRequests": FieldValue.arrayUnion([targetUID])
-                ])
-                targetRef.updateData([
-                    "friendRequests": FieldValue.arrayUnion([currentUID])
-                ])
 
-                completion("That user will receive your friend request if they are registered.")
+                myRef.getDocument { mySnap, _ in
+                    let myUsername = mySnap?.get("username") as? String ?? "Unknown"
+
+                    myRef.updateData([
+                        "sentRequests": FieldValue.arrayUnion([targetUID])
+                    ])
+                    targetRef.updateData([
+                        "friendRequests": FieldValue.arrayUnion([["uid": currentUID, "username": myUsername]])
+                    ])
+
+                    completion("That user will receive your friend request if they are registered.")
+                }
             }
     }
 }
