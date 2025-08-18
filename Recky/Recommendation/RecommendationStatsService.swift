@@ -57,29 +57,12 @@ struct DetailedStats {
 class RecommendationStatsService {
     static func fetchStats(for uid: String) async throws -> FriendStats {
         let db = Firestore.firestore()
-
-        async let sentDocs = getDocuments(
-            db.collection("recommendations").whereField("fromUID", isEqualTo: uid)
-        )
-        async let receivedDocs = getDocuments(
-            db.collection("recommendations").whereField("toUID", isEqualTo: uid)
-        )
-
-        let (sent, received) = try await (sentDocs, receivedDocs)
-
-        var sentUp = 0, sentDown = 0
-        for doc in sent {
-            if let vote = doc["vote"] as? Bool {
-                vote ? (sentUp += 1) : (sentDown += 1)
-            }
-        }
-
-        var receivedUp = 0, receivedDown = 0
-        for doc in received {
-            if let vote = doc["vote"] as? Bool {
-                vote ? (receivedUp += 1) : (receivedDown += 1)
-            }
-        }
+        let doc = try await getDocument(db.collection("users").document(uid))
+        let stats = (doc.data()?["stats"] as? [String: Any]) ?? [:]
+        let sentUp = stats["sentThumbsUp"] as? Int ?? 0
+        let sentDown = stats["sentThumbsDown"] as? Int ?? 0
+        let receivedUp = stats["receivedThumbsUp"] as? Int ?? 0
+        let receivedDown = stats["receivedThumbsDown"] as? Int ?? 0
 
         return FriendStats(
             sentThumbsUp: sentUp,
@@ -91,33 +74,14 @@ class RecommendationStatsService {
 
     static func fetchDetailedStats(for uid: String) async throws -> DetailedStats {
         let db = Firestore.firestore()
-
-        async let sentDocs = getDocuments(
-            db.collection("recommendations").whereField("fromUID", isEqualTo: uid)
-        )
-        async let receivedDocs = getDocuments(
-            db.collection("recommendations").whereField("toUID", isEqualTo: uid)
-        )
-
-        let (sent, received) = try await (sentDocs, receivedDocs)
-
-        var sentUp = 0, sentDown = 0, sentNoVote = 0
-        for doc in sent {
-            if let vote = doc["vote"] as? Bool {
-                vote ? (sentUp += 1) : (sentDown += 1)
-            } else {
-                sentNoVote += 1
-            }
-        }
-
-        var receivedUp = 0, receivedDown = 0, receivedNoVote = 0
-        for doc in received {
-            if let vote = doc["vote"] as? Bool {
-                vote ? (receivedUp += 1) : (receivedDown += 1)
-            } else {
-                receivedNoVote += 1
-            }
-        }
+        let doc = try await getDocument(db.collection("users").document(uid))
+        let stats = (doc.data()?["stats"] as? [String: Any]) ?? [:]
+        let sentUp = stats["sentThumbsUp"] as? Int ?? 0
+        let sentDown = stats["sentThumbsDown"] as? Int ?? 0
+        let sentNoVote = stats["sentNoVote"] as? Int ?? 0
+        let receivedUp = stats["receivedThumbsUp"] as? Int ?? 0
+        let receivedDown = stats["receivedThumbsDown"] as? Int ?? 0
+        let receivedNoVote = stats["receivedNoVote"] as? Int ?? 0
 
         return DetailedStats(
             sentThumbsUp: sentUp,
@@ -128,59 +92,95 @@ class RecommendationStatsService {
             receivedNoVote: receivedNoVote
         )
     }
-    
-    enum StatChangeType {
-        case increment
-        case decrement
-    }
-    
-    static func updateStatsInFirestore(for rec: Recommendation, change: StatChangeType) async throws {
-        guard let vote = rec.vote,
-              let _ = rec.id else { return }
 
-        let fromUID = rec.fromUID
-        let toUID = rec.toUID
-
+    static func updateStatsInFirestore(
+        for rec: Recommendation,
+        previousVote: Bool?,
+        newVote: Bool?
+    ) async throws {
         let db = Firestore.firestore()
+        try await runTransaction(db: db) { transaction in
+            let fromRef = db.collection("users").document(rec.fromUID)
+            let toRef = db.collection("users").document(rec.toUID)
 
-        let changeValue = (change == .increment) ? Int64(1) : Int64(-1)
-        let fromField = vote ? "sentThumbsUp" : "sentThumbsDown"
-        let toField = vote ? "receivedThumbsUp" : "receivedThumbsDown"
+            let fromUpdates = self.updates(forPrefix: "sent", previous: previousVote, new: newVote)
+            let toUpdates = self.updates(forPrefix: "received", previous: previousVote, new: newVote)
 
-        async let fromUpdate = setData(
-            db.collection("users").document(fromUID),
-            data: ["stats.\(fromField)": FieldValue.increment(changeValue)]
-        )
-        async let toUpdate = setData(
-            db.collection("users").document(toUID),
-            data: ["stats.\(toField)": FieldValue.increment(changeValue)]
-        )
-
-        try await fromUpdate
-        try await toUpdate
+            if !fromUpdates.isEmpty {
+                transaction.updateData(fromUpdates, forDocument: fromRef)
+            }
+            if !toUpdates.isEmpty {
+                transaction.updateData(toUpdates, forDocument: toRef)
+            }
+        }
     }
 
-    private static func getDocuments(_ query: Query) async throws -> [QueryDocumentSnapshot] {
+    private static func updates(
+        forPrefix prefix: String,
+        previous: Bool?,
+        new: Bool?
+    ) -> [String: Any] {
+        var updates: [String: Any] = [:]
+        let upField = "stats.\(prefix)ThumbsUp"
+        let downField = "stats.\(prefix)ThumbsDown"
+        let noneField = "stats.\(prefix)NoVote"
+
+        switch (previous, new) {
+        case (nil, nil):
+            updates[noneField] = FieldValue.increment(Int64(1))
+        case (nil, .some(let vote)):
+            updates[noneField] = FieldValue.increment(Int64(-1))
+            updates[vote ? upField : downField] = FieldValue.increment(Int64(1))
+        case (.some(let prev), nil):
+            updates[noneField] = FieldValue.increment(Int64(1))
+            updates[prev ? upField : downField] = FieldValue.increment(Int64(-1))
+        case (.some(let prev), .some(let next)):
+            if prev != next {
+                updates[prev ? upField : downField] = FieldValue.increment(Int64(-1))
+                updates[next ? upField : downField] = FieldValue.increment(Int64(1))
+            }
+        }
+
+        return updates
+    }
+
+    private static func getDocument(_ ref: DocumentReference) async throws -> DocumentSnapshot {
         try await withCheckedThrowingContinuation { continuation in
-            query.getDocuments { snapshot, error in
+            ref.getDocument { snapshot, error in
                 if let error = error {
                     continuation.resume(throwing: error)
+                } else if let snapshot = snapshot {
+                    continuation.resume(returning: snapshot)
                 } else {
-                    continuation.resume(returning: snapshot?.documents ?? [])
+                    let err = NSError(domain: "RecommendationStatsService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Document not found"])
+                    continuation.resume(throwing: err)
                 }
             }
         }
     }
 
-    private static func setData(_ ref: DocumentReference, data: [String: Any]) async throws {
+    private static func runTransaction(
+        db: Firestore,
+        updateBlock: @escaping (Transaction) throws -> Void
+    ) async throws {
         try await withCheckedThrowingContinuation { continuation in
-            ref.setData(data, merge: true) { error in
+            db.runTransaction({ transaction, errorPointer -> Any? in
+                do {
+                    try updateBlock(transaction)
+                    return nil
+                } catch {
+                    errorPointer?.pointee = error as NSError
+                    return nil
+                }
+            }, completion: { _, error in
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
                     continuation.resume()
                 }
-            }
+            })
         }
     }
+    // Cloud Function hooks could validate these updates server-side to ensure
+    // stats cannot be manipulated by clients directly.
 }
